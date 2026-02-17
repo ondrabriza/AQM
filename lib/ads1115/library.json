@@ -1,0 +1,16 @@
+{
+    "name": "ads1115",
+    "version": "1.0.0",
+    "description": "Driver for ADS1115 ADC",
+    "keywords": [
+        "ads1115",
+        "adc",
+        "driver"
+    ],
+    "authors": [
+        {
+            "name": "Ondřej Březina"
+        }
+    ]
+
+}

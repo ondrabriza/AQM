@@ -1,0 +1,16 @@
+{
+    "name": "sen55",
+    "version": "1.0.0",
+    "description": "Driver for SEN55 sensor",
+    "keywords": [
+        "sen55",
+        "sensor",
+        "driver"
+    ],
+    "authors": [
+        {
+            "name": "Ondřej Březina"
+        }
+    ]
+    
+}
