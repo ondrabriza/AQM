@@ -1,5 +1,5 @@
-#ifndef PINOUT_H
-#define PINOUT_H
+#ifndef AQM_CONFIG_H
+#define AQM_CONFIG_H
 
 
 #define LED_PIN 2
@@ -18,9 +18,23 @@
 #define ADC_1_RDY_PIN 14
 #define ADC_2_RDY_PIN 13
 
-#define SEN55_ADDRESS 0x69
-#define ADS1115_1_ADDRESS 0x48
-#define ADS1115_2_ADDRESS 0x49
+#define SEN5X_I2C_ADDRESS 0x69 
+
+#define ADS1115_ADDR_1 0x48
+#define ADS1115_ADDR_2 0x49
+
+#define CHANNEL_SGX_SO2 0   // AIN00
+#define CHANNEL_3V3     1   // AIN01
+#define CHANNEL_5V      2   // AIN02
+#define CHANNEL_SGX_H2S 3   // AIN03
+
+#define CHANNEL_CO_VAL  1   // AIN11
+#define CHANNEL_NH3_VAL 2   // AIN12
+#define CHANNEL_NO2_VAL 3   // AIN13
+
+#define SENSITIVITY_H2S_MV_PPM 26.4f
+#define SENSITIVITY_SO2_MV_PPM 120.0f
+
 
 #define AQM_WIFI_SSID      "IoT"
 #define AQM_WIFI_PASS      "AQM_Project"
@@ -28,4 +42,4 @@
 
 
 
-#endif // PINOUT_H
+#endif // AQM_CONFIG_H
