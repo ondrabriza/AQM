@@ -5,7 +5,3 @@
 
 static const char *TAG = "SEN55";
 
-void sen55_init(void) {
-    ESP_LOGE(TAG, "Initializing SEN55 sensor");
-    sensirion_i2c_general_call_reset();
-}
