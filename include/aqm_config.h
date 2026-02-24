@@ -2,7 +2,7 @@
 #define AQM_CONFIG_H
 
 
-#define LED_PIN 2
+#define LED_PIN 45
 
 #define BOOT_BUTTON_PIN 46
 
