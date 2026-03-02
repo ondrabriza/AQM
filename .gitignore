@@ -4,3 +4,4 @@
 .vscode/launch.json
 .vscode/ipch
 lib/sen55/src/embedded-i2c-sen5x-master.zip
+docs
