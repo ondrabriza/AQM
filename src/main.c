@@ -8,6 +8,7 @@
 #include "aqm_modbus_reg.h"
 #include "aqm_modbus.h"
 #include "aqm_gpio.h"
+#include "aqm_tasks.h"
 
 #include <esp_log.h>
 #include <nvs.h>
@@ -48,6 +49,7 @@ void app_main() {
     aqm_datastore_fill_test_data(); // Fill datastore with test data for initial Modbus values
     aqm_modbus_update_registers(); // Update Modbus registers with initial data
 
+    aqm_tasks_start();
 
     while (1)
     {
