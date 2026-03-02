@@ -60,11 +60,17 @@ static void url_decode(char *dst, const char *src) {
     *dst++ = '\0';
 }
 
+/**
+ * @brief HTTP GET Handler: Serves the configuration HTML page
+ */
 static esp_err_t wifi_config_get_handler(httpd_req_t *req) {
     httpd_resp_set_type(req, "text/html");
     return httpd_resp_send(req, wifi_config_html, HTTPD_RESP_USE_STRLEN);
 }
 
+/**
+ * @brief HTTP POST Handler: Processes submitted form, saves to NVS and restarts
+ */
 static esp_err_t wifi_save_post_handler(httpd_req_t *req) {
     char buf[256];
     int ret, remaining = req->content_len;
@@ -81,27 +87,33 @@ static esp_err_t wifi_save_post_handler(httpd_req_t *req) {
     char raw_ssid[64] = {0};
     char raw_pass[128] = {0};
 
+    // Extract values from the form payload
     if (httpd_query_key_value(buf, "ssid", raw_ssid, sizeof(raw_ssid)) == ESP_OK) {
-        url_decode(g_aqm_data.wifi_config.wifi_ssid, raw_ssid);
+        url_decode(aqm_data.wifi_config.wifi_ssid, raw_ssid);
     }
     if (httpd_query_key_value(buf, "password", raw_pass, sizeof(raw_pass)) == ESP_OK) {
-        url_decode(g_aqm_data.wifi_config.wifi_pass, raw_pass);
+        url_decode(aqm_data.wifi_config.wifi_pass, raw_pass);
     }
     
-    ESP_LOGI(TAG, "New credentials received. SSID: %s", g_aqm_data.wifi_config.wifi_ssid);
-    //ESP_LOGI(TAG, "Password: %s", g_aqm_data.wifi_config.wifi_pass);
+    ESP_LOGI(TAG, "New credentials received. SSID: %s", aqm_data.wifi_config.wifi_ssid);
 
+    // Save the new credentials to NVS memory
     aqm_wifi_config_save_nvs();
 
+    // Send confirmation to the browser
     const char* resp = "<html><body><h2>Saved!</h2><p>Restarting device...</p></body></html>";
     httpd_resp_send(req, resp, HTTPD_RESP_USE_STRLEN);
     
+    // Allow time for the response to be sent before restarting
     vTaskDelay(pdMS_TO_TICKS(1500));
     esp_restart();
 
     return ESP_OK;
 }
 
+/**
+ * @brief Starts the web server on port 80
+ */
 static void start_web_server(void) {
     httpd_handle_t server = NULL;
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
@@ -113,6 +125,7 @@ static void start_web_server(void) {
 
         httpd_uri_t post_uri = { .uri = "/save", .method = HTTP_POST, .handler = wifi_save_post_handler };
         httpd_register_uri_handler(server, &post_uri);
+        
         ESP_LOGI(TAG, "Web server started on port %d", config.server_port);
     }
 }
@@ -121,6 +134,9 @@ static void start_web_server(void) {
 // WI-FI CONNECTION & FALLBACK SECTION
 // ------------------------------------------------------------------
 
+/**
+ * @brief Starts the ESP32 in Access Point mode as a fallback
+ */
 static void start_ap_fallback(void) {
     ESP_LOGW(TAG, "Starting Fallback Access Point: %s", AQM_AP_SSID);
     
@@ -142,19 +158,26 @@ static void start_ap_fallback(void) {
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &ap_config));
     
-    g_aqm_data.status.wifi_connected = false;
+    aqm_data.status.wifi_connected = false;
     
     // Start HTTP server for provisioning
     start_web_server();
+    
+    ESP_LOGI(TAG, "Connect to AP '%s' and go to 192.168.4.1 in your browser.", AQM_AP_SSID);
 }
 
+/**
+ * @brief Event handler for Wi-Fi and IP events
+ */
 static void wifi_event_handler(void* arg, esp_event_base_t event_base,
                                 int32_t event_id, void* event_data) {
+    
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
+        ESP_LOGI(TAG, "Wi-Fi started, attempting to connect...");
         esp_wifi_connect();
     } 
     else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
-        g_aqm_data.status.wifi_connected = false;
+        aqm_data.status.wifi_connected = false;
 
         if (s_retry_num < AQM_MAX_RETRY) {
             esp_wifi_connect();
@@ -169,33 +192,47 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
         ESP_LOGI(TAG, "Connected! IP address: " IPSTR, IP2STR(&event->ip_info.ip));
         s_retry_num = 0;
-        g_aqm_data.status.wifi_connected = true;
+        aqm_data.status.wifi_connected = true;
     }
 }
 
+/**
+ * @brief Initializes Wi-Fi stack and connects to the network
+ */
 void aqm_wifi_connect(void) {
+    // 1. Initialize TCP/IP stack
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     
     s_sta_netif = esp_netif_create_default_wifi_sta();
 
+    // 2. Initialize Wi-Fi driver
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
+    // 3. Register Event Handlers
     ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL, NULL));
     ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_event_handler, NULL, NULL));
 
+    // 4. Configure connection parameters
     wifi_config_t wifi_config = {
         .sta = {
             .threshold.authmode = WIFI_AUTH_WPA2_PSK,
         },
     };
     
-    
-    strncpy((char*)wifi_config.sta.ssid, g_aqm_data.wifi_config.wifi_ssid, sizeof(wifi_config.sta.ssid));
-    strncpy((char*)wifi_config.sta.password, g_aqm_data.wifi_config.wifi_pass, sizeof(wifi_config.sta.password));
-    
+    // 5. Select which credentials to use
+    if (strlen(aqm_data.wifi_config.wifi_ssid) > 0) {
+        ESP_LOGI(TAG, "Using saved Wi-Fi credentials from NVS.");
+        strncpy((char*)wifi_config.sta.ssid, aqm_data.wifi_config.wifi_ssid, sizeof(wifi_config.sta.ssid));
+        strncpy((char*)wifi_config.sta.password, aqm_data.wifi_config.wifi_pass, sizeof(wifi_config.sta.password));
+    } else {
+        ESP_LOGI(TAG, "NVS is empty. Using default Wi-Fi credentials from config.h.");
+        strncpy((char*)wifi_config.sta.ssid, AQM_WIFI_SSID, sizeof(wifi_config.sta.ssid));
+        strncpy((char*)wifi_config.sta.password, AQM_WIFI_PASS, sizeof(wifi_config.sta.password));
+    }
 
+    // 6. Start the connection
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());

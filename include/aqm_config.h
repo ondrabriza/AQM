@@ -40,6 +40,8 @@
 #define AQM_AP_PASS          "12345678" // Min. 8 characters
 #define AQM_CONFIG_PORT      80
 #define AQM_MAX_RETRY        5
+#define AQM_WIFI_SSID        "AQM_Sensor" // Default Wi-Fi SSID (used if NVS is empty)
+#define AQM_WIFI_PASS        "123456789" // Default Wi-Fi Password (used if NVS is empty)
 
 
 #endif // AQM_CONFIG_H

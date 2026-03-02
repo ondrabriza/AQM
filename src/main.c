@@ -5,7 +5,7 @@
 #include "ads1115.h"
 #include "sen55.h"
 #include "aqm_wifi.h"
-#include "modbus_reg.h"
+#include "aqm_modbus_reg.h"
 #include "aqm_modbus.h"
 #include "aqm_gpio.h"
 
@@ -44,6 +44,9 @@ void app_main() {
     aqm_wifi_connect();
     // Initialize sensors and Modbus communication
     aqm_init_modbus();
+
+    aqm_datastore_fill_test_data(); // Fill datastore with test data for initial Modbus values
+    aqm_modbus_update_registers(); // Update Modbus registers with initial data
 
 
     while (1)

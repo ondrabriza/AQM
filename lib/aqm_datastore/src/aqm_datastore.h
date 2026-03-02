@@ -74,7 +74,7 @@ typedef struct {
     aqm_wifi_config_t wifi_config;
 } aqm_data_t;
 
-extern aqm_data_t g_aqm_data;
+extern aqm_data_t aqm_data;
 
 void aqm_datastore_init(void);
 
@@ -88,5 +88,10 @@ void aqm_wifi_config_save_nvs(void);
  */
 void aqm_wifi_config_load_nvs(void);
 
+/**
+ * @brief Fills the datastore with dummy/test data.
+ * Useful for testing Modbus and UI without physical sensors.
+ */
+void aqm_datastore_fill_test_data(void);
 
 #endif // AQM_DATASTORE_H
