@@ -35,11 +35,11 @@
 #define SENSITIVITY_H2S_MV_PPM 26.4f
 #define SENSITIVITY_SO2_MV_PPM 120.0f
 
-
-#define AQM_WIFI_SSID      "IoT"
-#define AQM_WIFI_PASS      "AQM_Project"
-#define AQM_MAX_RETRY      5
-
+// Fallback Access Point settings
+#define AQM_AP_SSID          "AQM_Sensor_Setup"
+#define AQM_AP_PASS          "12345678" // Min. 8 characters
+#define AQM_CONFIG_PORT      80
+#define AQM_MAX_RETRY        5
 
 
 #endif // AQM_CONFIG_H

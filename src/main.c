@@ -1,16 +1,20 @@
-#include "aqm_config.h"
-#include "modbus_reg.h"
-#include "aqm_modbus.h"
-#include "aqm_i2c.h"
 
+#include "aqm_config.h"
+#include "aqm_i2c.h"
+#include "aqm_datastore.h"
 #include "ads1115.h"
 #include "sen55.h"
 #include "aqm_wifi.h"
+#include "modbus_reg.h"
+#include "aqm_modbus.h"
 #include "aqm_gpio.h"
 
 #include <esp_log.h>
 #include <nvs.h>
 #include <nvs_flash.h>
+
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 static const char *TAG = "MAIN";
 
@@ -34,10 +38,20 @@ void app_main() {
     }
     ESP_ERROR_CHECK(ret);
 
+    aqm_datastore_init();
 
     // Initialize Wi-Fi and connect to the Access Point
     aqm_wifi_connect();
+    // Initialize sensors and Modbus communication
     aqm_init_modbus();
 
-    // Initialize sensors and Modbus communication here
+
+    while (1)
+    {
+        /* code */
+        vTaskDelay(1000 / portTICK_PERIOD_MS); // Delay for 1 second
+        ESP_LOGI(TAG, "Main loop running...");
+
+    }
+    
 }
