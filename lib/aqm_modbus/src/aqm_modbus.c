@@ -82,7 +82,11 @@ esp_err_t aqm_init_modbus(void) {
  * Applies necessary scaling factors for integer transmission.
  */
 void aqm_modbus_update_registers(void) {
-    // 1. Pack boolean statuses into a single status word
+    // ==========================================
+    // 1. UPDATE INPUT REGISTERS (Read Only)
+    // ==========================================
+    
+    // Pack boolean statuses into a single status word
     input_reg_params.status_word = 0;
     if (aqm_data.status.wifi_connected) {
         input_reg_params.status_word |= MASK_STATUS_WIFI;
@@ -90,8 +94,12 @@ void aqm_modbus_update_registers(void) {
     if (aqm_data.status.relay_active) {
         input_reg_params.status_word |= MASK_STATUS_RELAY;
     }
+    if (aqm_data.status.led_active) {
+        // MASK_STATUS_LED must be defined in modbus_reg.h (e.g., 1 << 2)
+        input_reg_params.status_word |= MASK_STATUS_LED; 
+    }
 
-    // 2. Direct copy of raw ADC values (already uint16_t)
+    // Direct copy of raw ADC values (already uint16_t)
     input_reg_params.so2_raw_val  = aqm_data.adc_raw.so2_raw_val;
     input_reg_params.v3v3_raw_val = aqm_data.adc_raw.v3v3_raw_val;
     input_reg_params.v5v_raw_val  = aqm_data.adc_raw.v5v_raw_val;
@@ -100,7 +108,7 @@ void aqm_modbus_update_registers(void) {
     input_reg_params.nh3_raw_val  = aqm_data.adc_raw.nh3_raw_val;
     input_reg_params.no2_raw_val  = aqm_data.adc_raw.no2_raw_val;
     
-    // 3. Scale and cast float values to uint16_t
+    // Scale and cast float values to uint16_t
     // Gases: Multiplied by 100 (2 decimal places)
     input_reg_params.so2_ppm = (uint16_t)(aqm_data.gases.so2_ppm * 100.0f);
     input_reg_params.h2s_ppm = (uint16_t)(aqm_data.gases.h2s_ppm * 100.0f);
@@ -125,35 +133,26 @@ void aqm_modbus_update_registers(void) {
     input_reg_params.voc_index = (uint16_t)aqm_data.sen55.voc_index;
     input_reg_params.nox_index = (uint16_t)aqm_data.sen55.nox_index;
 
-    input_reg_params.uptime_sec_hi = (uint16_t)((aqm_data.status.uptime_sec >> 16) & 0xFFFF); // Higher 16 bits
-    input_reg_params.uptime_sec_lo = (uint16_t)(aqm_data.status.uptime_sec & 0xFFFF); // Lower 16 bits
+    // 32-bit Uptime (Big-Endian format: High word first)
+    input_reg_params.uptime_sec_hi = (uint16_t)((aqm_data.status.uptime_sec >> 16) & 0xFFFF);
+    input_reg_params.uptime_sec_lo = (uint16_t)(aqm_data.status.uptime_sec & 0xFFFF);
 
-}
-
-/**
- * @brief Processes commands incoming from the Modbus Master (Holding Registers)
- * Should be called periodically in the main Modbus or Tasks loop.
- */
-void aqm_modbus_process_holding_regs(void) {
-    // Check Relay Control Bit
-    if (holding_reg_params.control_word & MASK_RELAY_ENABLE) {
-        if (!aqm_data.status.relay_active) {
-            ESP_LOGI(TAG, "Modbus command: Relay ON");
-            gpio_set_level(RELAY_PIN, 1); // Enable this if using real GPIO
-            aqm_data.status.relay_active = 1;
-        }
+    // ==========================================
+    // 2. UPDATE HOLDING REGISTERS (Read/Write)
+    // ==========================================
+    
+    // Synchronize RELAY state from internal datastore to Modbus register
+    if (aqm_data.status.relay_active) {
+        holding_reg_params.control_word |= MASK_RELAY_CONTROL; 
     } else {
-        if (aqm_data.status.relay_active) {
-            ESP_LOGI(TAG, "Modbus command: Relay OFF");
-            gpio_set_level(RELAY_PIN, 0); // Enable this if using real GPIO
-            aqm_data.status.relay_active = 0;
-        }
+        holding_reg_params.control_word &= ~MASK_RELAY_CONTROL; 
     }
 
-    // Check LED Control Bit
-    if (holding_reg_params.control_word & MASK_LED_CONTROL) {
-        // gpio_set_level(LED_PIN, 1);
+    // Synchronize LED state from internal datastore to Modbus register
+    if (aqm_data.status.led_active) {
+        holding_reg_params.control_word |= MASK_LED_CONTROL; 
     } else {
-        // gpio_set_level(LED_PIN, 0);
+        holding_reg_params.control_word &= ~MASK_LED_CONTROL; 
     }
 }
+

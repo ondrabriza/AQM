@@ -5,12 +5,12 @@
 
 // Bit masks for Control Word (Holding Reg)
 #define MASK_LED_CONTROL    (1 << 0)  // Bit 0
-#define MASK_RELAY_ENABLE   (1 << 1)  // Bit 1
+#define MASK_RELAY_CONTROL   (1 << 1)  // Bit 1
 
 // Bit masks for Status Word (Input Reg)
-#define MASK_STATUS_WIFI    (1 << 0)  // Bit 0
+#define MASK_STATUS_LED     (1 << 0)  // Bit 0
 #define MASK_STATUS_RELAY   (1 << 1)  // Bit 1
-
+#define MASK_STATUS_WIFI    (1 << 2)  // Bit 2
 
 /**
  * @brief HOLDING REGISTERS (Read/Write) - Function 03, 06, 16
@@ -27,7 +27,7 @@ typedef struct {
  */
 typedef struct {
     // --- System Status ---
-    uint16_t status_word;  /**< Reg 0: Bit 0=WiFi, Bit 1=Relay */
+    uint16_t status_word;  /**< Reg 0: Bit 0=WiFi, Bit 1=Relay, Bit 2=LED */
     
     // --- RAW ADC counts (Scale: 1) ---
     uint16_t so2_raw_val;  /**< Reg 1: SO2 Raw ADC count */

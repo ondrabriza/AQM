@@ -77,6 +77,8 @@ static esp_err_t relay_init(void){
     return err;
 }
 
+
+
 static esp_err_t ads1115_rdy_init(void){
     // Configure both ADC RDY pins simultaneously using a configuration structure
     gpio_config_t io_conf = {
@@ -123,4 +125,21 @@ static void IRAM_ATTR boot_button_isr_handler(void* arg) {
     last_isr_time = current_time;
     led_state = !led_state; // Toggle LED state
     gpio_set_level(LED_PIN, led_state);
+}
+
+
+esp_err_t aqm_relay_turn_on(void) {
+    return gpio_set_level(RELAY_PIN, 0); // Active LOW
+}
+
+esp_err_t aqm_relay_turn_off(void) {
+    return gpio_set_level(RELAY_PIN, 1); // Active LOW
+}
+
+esp_err_t aqm_led_turn_on(void) {
+    return gpio_set_level(LED_PIN, 1); // Active HIGH
+}
+
+esp_err_t aqm_led_turn_off(void) {
+    return gpio_set_level(LED_PIN, 0); // Active HIGH
 }

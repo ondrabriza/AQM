@@ -50,6 +50,7 @@ typedef struct {
     uint8_t wifi_connected;
     uint32_t uptime_sec;
     uint8_t relay_active;
+    uint8_t led_active;
     float v3v3_val;        // Voltage on 3.3V rail (V)
     float v5v_val;         // Voltage on 5.0V rail (V)
 
