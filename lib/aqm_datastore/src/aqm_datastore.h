@@ -24,9 +24,9 @@ typedef struct {
     float so2_ppm;
     float h2s_ppm;
 
-    float co_ppm;
-    float nh3_ppm;
-    float no2_ppm;
+    float co_mv;
+    float nh3_mv;
+    float no2_mv;
 } aqm_gas_data_t;
 
 /**
@@ -51,8 +51,8 @@ typedef struct {
     uint32_t uptime_sec;
     uint8_t relay_active;
     uint8_t led_active;
-    float v3v3_val;        // Voltage on 3.3V rail (V)
-    float v5v_val;         // Voltage on 5.0V rail (V)
+    uint16_t v3v3_val;        /**< Voltage on 3V3 rail in mV */
+    uint16_t v5v_val;         /**< Voltage on 5V rail in mV */
 
 } aqm_system_status_t;
 

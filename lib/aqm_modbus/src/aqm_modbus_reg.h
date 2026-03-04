@@ -42,9 +42,9 @@ typedef struct {
     // Example: Master reads 125 -> 1.25 ppm
     uint16_t so2_ppm;      /**< Reg 8: SO2 concentration (PPM * 100) */
     uint16_t h2s_ppm;      /**< Reg 9: H2S concentration (PPM * 100) */
-    uint16_t co_ppm;       /**< Reg 10: CO concentration (PPM * 100) */
-    uint16_t nh3_ppm;      /**< Reg 11: NH3 concentration (PPM * 100) */
-    uint16_t no2_ppm;      /**< Reg 12: NO2 concentration (PPM * 100) */
+    uint16_t co_mv;       /**< Reg 10: CO concentration (PPM * 100) */
+    uint16_t nh3_mv;      /**< Reg 11: NH3 concentration (PPM * 100) */
+    uint16_t no2_mv;      /**< Reg 12: NO2 concentration (PPM * 100) */
 
     // --- Voltage Rails (Scale: 1000 -> 3 decimal places) ---
     // Example: Master reads 3315 -> 3.315 V

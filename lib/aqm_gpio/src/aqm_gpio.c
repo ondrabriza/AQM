@@ -9,9 +9,9 @@
 static const char *TAG = "AQM_GPIO";
 
 // --- Forward declarations ---
-static esp_err_t led_init(void);
-static esp_err_t relay_init(void);
-static esp_err_t ads1115_rdy_init(void);
+static esp_err_t aqm_led_init(void);
+static esp_err_t aqm_relay_init(void);
+static esp_err_t aqm_adcs_rdy_pins_init(void);
 static esp_err_t boot_button_init(void);
 static void boot_button_isr_handler(void* arg);
 
@@ -22,13 +22,13 @@ esp_err_t aqm_gpio_intialize(void) {
     esp_err_t err;
 
     /* Configure GPIOs for outputs */
-    err = led_init();
+    err = aqm_led_init();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to initialize LED pin");
         return err;
     }
 
-    err = relay_init();
+    err = aqm_relay_init();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to initialize relay pin");
         return err;
@@ -46,7 +46,7 @@ esp_err_t aqm_gpio_intialize(void) {
 
 
     /* Configure GPIOs for inputs with interrupts */
-    err = ads1115_rdy_init();
+    err = aqm_adcs_rdy_pins_init();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to initialize ADS1115 RDY pins");
         return err;
@@ -62,14 +62,14 @@ esp_err_t aqm_gpio_intialize(void) {
     return ESP_OK;
 }
 
-static esp_err_t led_init(void){
+static esp_err_t aqm_led_init(void){
     esp_err_t err = gpio_reset_pin(LED_PIN);
     if (err != ESP_OK) return err;
     err = gpio_set_direction(LED_PIN, GPIO_MODE_OUTPUT);
     return err;
 }
 
-static esp_err_t relay_init(void){
+static esp_err_t aqm_relay_init(void){
     esp_err_t err = gpio_reset_pin(RELAY_PIN);
     if (err != ESP_OK) return err;
     err = gpio_set_direction(RELAY_PIN, GPIO_MODE_OUTPUT);
@@ -79,7 +79,7 @@ static esp_err_t relay_init(void){
 
 
 
-static esp_err_t ads1115_rdy_init(void){
+static esp_err_t aqm_adcs_rdy_pins_init(void){
     // Configure both ADC RDY pins simultaneously using a configuration structure
     gpio_config_t io_conf = {
         .intr_type = GPIO_INTR_NEGEDGE, // Interrupt on falling edge (Active Low)

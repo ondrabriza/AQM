@@ -112,13 +112,15 @@ void aqm_modbus_update_registers(void) {
     // Gases: Multiplied by 100 (2 decimal places)
     input_reg_params.so2_ppm = (uint16_t)(aqm_data.gases.so2_ppm * 100.0f);
     input_reg_params.h2s_ppm = (uint16_t)(aqm_data.gases.h2s_ppm * 100.0f);
-    input_reg_params.co_ppm  = (uint16_t)(aqm_data.gases.co_ppm * 100.0f);
-    input_reg_params.nh3_ppm = (uint16_t)(aqm_data.gases.nh3_ppm * 100.0f);
-    input_reg_params.no2_ppm = (uint16_t)(aqm_data.gases.no2_ppm * 100.0f);
 
-    // Voltages: Multiplied by 1000 (mV resolution)
-    input_reg_params.v3v3_val = (uint16_t)(aqm_data.status.v3v3_val * 1000.0f);
-    input_reg_params.v5v_val  = (uint16_t)(aqm_data.status.v5v_val * 1000.0f);
+    input_reg_params.co_mv  = (uint16_t)(aqm_data.gases.co_mv );
+    //ESP_LOGI(TAG, "CO mV: %.2f -> Reg Value: %d", aqm_data.gases.co_mv, input_reg_params.co_mv);
+    input_reg_params.nh3_mv = (uint16_t)(aqm_data.gases.nh3_mv);
+    input_reg_params.no2_mv = (uint16_t)(aqm_data.gases.no2_mv);
+
+    // Voltages: mV resolution
+    input_reg_params.v3v3_val = aqm_data.status.v3v3_val;
+    input_reg_params.v5v_val  = aqm_data.status.v5v_val;
 
     // Climate Data: Multiplied by 10
     // Casting to int16_t first handles negative temperatures safely

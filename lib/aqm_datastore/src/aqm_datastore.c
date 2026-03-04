@@ -89,13 +89,13 @@ void aqm_datastore_fill_test_data(void) {
     // --- 3. Calculated Gas PPM (Reg 8 - 12) ---
     aqm_data.gases.so2_ppm = 2.45f;
     aqm_data.gases.h2s_ppm = 0.85f;
-    aqm_data.gases.co_ppm = 15.2f;
-    aqm_data.gases.nh3_ppm = 5.1f;
-    aqm_data.gases.no2_ppm = 1.2f;
+    aqm_data.gases.co_mv = 15.2f;
+    aqm_data.gases.nh3_mv = 5.1f;
+    aqm_data.gases.no2_mv = 1.2f;
 
     // --- 4. Voltage Rails (Reg 13 - 14) ---
-    aqm_data.status.v3v3_val = 3.29f;  // 3.29 V
-    aqm_data.status.v5v_val = 5.05f;   // 5.05 V
+    aqm_data.status.v3v3_val = 3290;  // 3.29 V
+    aqm_data.status.v5v_val = 5050;   // 5.05 V
 
     // --- 5. SEN55 Climate Data (Reg 15 - 16) ---
     aqm_data.sen55.temperature = 23.5f; // 23.5 °C
