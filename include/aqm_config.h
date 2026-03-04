@@ -32,8 +32,8 @@
 #define CHANNEL_NH3_VAL 2   // AIN12
 #define CHANNEL_NO2_VAL 3   // AIN13
 
-#define SENSITIVITY_H2S_MV_PPM 26.4f
-#define SENSITIVITY_SO2_MV_PPM 120.0f
+#define SENSITIVITY_H2S_MV_PER_PPM 26.4f
+#define SENSITIVITY_SO2_MV_PER_PPM 120.0f
 
 // Fallback Access Point settings
 #define AQM_AP_SSID          "AQM_Sensor_Setup"
