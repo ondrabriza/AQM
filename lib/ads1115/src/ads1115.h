@@ -26,10 +26,10 @@ typedef enum {
     ADS1115_MUX_DIFF_0_3 = 0x01, // Differential AIN0 - AIN3
     ADS1115_MUX_DIFF_1_3 = 0x02, // Differential AIN1 - AIN3
     ADS1115_MUX_DIFF_2_3 = 0x03, // Differential AIN2 - AIN3
-    ADS1115_MUX_SINGLE_0 = 0x04, // Single-ended AIN0 - GND (e.g., CHANNEL_SGX_SO2)
-    ADS1115_MUX_SINGLE_1 = 0x05, // Single-ended AIN1 - GND (e.g., CHANNEL_3V3)
-    ADS1115_MUX_SINGLE_2 = 0x06, // Single-ended AIN2 - GND (e.g., CHANNEL_5V)
-    ADS1115_MUX_SINGLE_3 = 0x07  // Single-ended AIN3 - GND (e.g., CHANNEL_SGX_H2S)
+    ADS1115_MUX_SINGLE_0 = 0x04, // Single-ended AIN0 - GND
+    ADS1115_MUX_SINGLE_1 = 0x05, // Single-ended AIN1 - GND
+    ADS1115_MUX_SINGLE_2 = 0x06, // Single-ended AIN2 - GND
+    ADS1115_MUX_SINGLE_3 = 0x07  // Single-ended AIN3 - GND
 } ads1115_mux_t;
 
 // Programmable Gain Amplifier (PGA) configuration
@@ -90,5 +90,24 @@ esp_err_t ads1115_read_adc(uint8_t i2c_addr, int16_t *adc_value);
  * @return Voltage in millivolts [mV]
  */
 float ads1115_compute_mv(int16_t adc_value, ads1115_pga_t pga);
+
+
+/**
+ * @brief Synchronously reads a single-ended channel from the ADS1115
+ * @param i2c_addr Address of the specific ADS1115 chip
+ * @param channel Channel number (0 to 3)
+ * @param pga Gain setting
+ * @param rate Data rate
+ * @param out_val Pointer to store the raw ADC result
+ */
+esp_err_t ads1115_read_single_channel(uint8_t i2c_addr, uint8_t channel, ads1115_pga_t pga, ads1115_data_rate_t rate, int16_t *out_val);
+
+
+
+/**
+ * @brief Non-blocking function. Requests a single measurement and returns immediately.
+ */
+esp_err_t ads1115_start_single_ended_conversion(uint8_t i2c_addr, uint8_t channel, ads1115_pga_t pga, ads1115_data_rate_t rate);
+
 
 #endif // ADS1115_H
