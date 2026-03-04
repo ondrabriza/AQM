@@ -1,11 +1,11 @@
 #include "aqm_i2c.h"
 #include "aqm_config.h"
+#include "ads1115.h"
+#include "aqm_datastore.h"
 
-#include "driver/i2c.h"
-#include "esp_log.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "rom/ets_sys.h"
+#include <esp_err.h>
+#include <esp_log.h>
+
 
 static const char *TAG = "AQM_I2C";
 
