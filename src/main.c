@@ -46,13 +46,14 @@ void app_main() {
     // Initialize sensors and Modbus communication
     aqm_init_modbus();
 
-    aqm_datastore_fill_test_data(); // Fill datastore with test data for initial Modbus values
-    aqm_modbus_update_registers(); // Update Modbus registers with initial data
+    //aqm_datastore_fill_test_data(); // Fill datastore with test data for initial Modbus values
+    //aqm_modbus_update_registers(); // Update Modbus registers with initial data
 
     aqm_tasks_start();
 
     while (1)
     {
+        
         /* code */
         vTaskDelay(1000 / portTICK_PERIOD_MS); // Delay for 1 second
         ESP_LOGI(TAG, "Main loop running...");
