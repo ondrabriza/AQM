@@ -14,6 +14,7 @@ void aqm_datastore_init(void) {
 
     // Try to load saved data from Flash memory
     aqm_wifi_config_load_nvs();
+    aqm_control_word_load_nvs();
 }
 
 void aqm_wifi_config_save_nvs(void) {
@@ -67,6 +68,59 @@ void aqm_wifi_config_load_nvs(void) {
     nvs_close(my_handle);
 }
 
+void aqm_control_word_save_nvs(void) {
+    nvs_handle_t my_handle;
+    esp_err_t err;
+
+    // Open NVS namespace "storage" in read/write mode
+    err = nvs_open("storage", NVS_READWRITE, &my_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Error (%s) opening NVS!", esp_err_to_name(err));
+        return;
+    }
+
+    // Save the control word as a 16-bit value
+    err = nvs_set_u16(my_handle, "ctrl_word", aqm_data.control_word.word);
+    
+    if (err == ESP_OK) {
+        // Write must be committed
+        err = nvs_commit(my_handle);
+        if (err == ESP_OK) {
+            ESP_LOGI(TAG, "Control word successfully saved to Flash.");
+        }
+    } else {
+        ESP_LOGE(TAG, "Error writing control word to NVS!");
+    }
+
+    // Close the handle
+    nvs_close(my_handle);
+}
+
+void aqm_control_word_load_nvs(void) {
+    nvs_handle_t my_handle;
+    esp_err_t err;
+
+    // Open NVS in read-only mode
+    err = nvs_open("storage", NVS_READONLY, &my_handle);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "NVS memory is empty or not initialized (normal on first boot).");
+        return;
+    }
+
+    // Load the control word as a 16-bit value
+    err = nvs_get_u16(my_handle, "ctrl_word", &aqm_data.control_word.word);
+    
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "Loaded saved control word from NVS.");
+    } else {
+        ESP_LOGW(TAG, "No control word found in NVS.");
+    }
+
+    nvs_close(my_handle);
+}
+
+
+
 /**
  * @brief Fills the datastore with dummy/test data for debugging purposes.
  */
@@ -74,8 +128,8 @@ void aqm_datastore_fill_test_data(void) {
     ESP_LOGI(TAG, "Filling datastore with TEST DATA...");
 
     // --- 1. System Status (Reg 0) ---
-    aqm_data.status.wifi_connected = 1;
-    aqm_data.status.relay_active = 1;
+    aqm_data.status.status_word.flags.wifi_en = 1;
+    aqm_data.status.status_word.flags.relay_state = 1;
 
     // --- 2. RAW ADC Values (Reg 1 - 7) ---
     aqm_data.adc_raw.so2_raw_val = 15400;
@@ -109,5 +163,5 @@ void aqm_datastore_fill_test_data(void) {
     aqm_data.sen55.voc_index = 115.0f;  // 115 points
     aqm_data.sen55.nox_index = 20.0f;   // 20 points
 
-    aqm_data.status.uptime_sec = 65540; // 1 hour uptime
+    aqm_data.status.timestamp = 65540; // 1 hour uptime
 }
