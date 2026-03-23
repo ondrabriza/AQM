@@ -10,11 +10,14 @@
 #include <esp_log.h>
 #include <esp_netif.h>
 #include <esp_http_server.h>
+#include <mdns.h>
 
 static const char *TAG = "AQM_WIFI";
 static int s_retry_num = 0;
 static esp_netif_t *s_sta_netif = NULL;
 static esp_netif_t *s_ap_netif = NULL;
+
+EventGroupHandle_t s_wifi_event_group;
 
 // ------------------------------------------------------------------
 // HTTP SERVER (CAPTIVE PORTAL) SECTION
@@ -114,7 +117,7 @@ static esp_err_t wifi_save_post_handler(httpd_req_t *req) {
 /**
  * @brief Starts the web server on port 80
  */
-static void start_web_server(void) {
+void start_web_server(void) {
     httpd_handle_t server = NULL;
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.stack_size = 8192;
@@ -130,9 +133,33 @@ static void start_web_server(void) {
     }
 }
 
+
+void start_mdns_service(void) {
+    // 1. Inicializace mDNS modulu
+    esp_err_t err = mdns_init();
+    if (err) {
+        ESP_LOGE(TAG, "mDNS init selhal: %d", err);
+    }
+
+    // 2. Nastavení statického hostname
+    // Zařízení bude dostupné na http://moje-esp32.local
+    mdns_hostname_set("aqm");
+    
+    // 3. Nastavení popisku zařízení (pro discovery tooly)
+    mdns_instance_name_set("ESP32 Web Server");
+
+    // 4. Publikace konkrétní služby (např. HTTP na portu 80)
+    // Tímto o sobě dá vědět ostatním zařízením v síti
+    mdns_service_add(NULL, "_http", "_tcp", 80, NULL, 0);
+
+    ESP_LOGI(TAG, "mDNS aktivní: aqm.local");
+}
+
+
 // ------------------------------------------------------------------
 // WI-FI CONNECTION & FALLBACK SECTION
 // ------------------------------------------------------------------
+
 
 /**
  * @brief Starts the ESP32 in Access Point mode as a fallback
@@ -158,13 +185,11 @@ static void start_ap_fallback(void) {
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &ap_config));
     
-    aqm_data.status.wifi_connected = false;
-    
-    // Start HTTP server for provisioning
-    start_web_server();
     
     ESP_LOGI(TAG, "Connect to AP '%s' and go to 192.168.4.1 in your browser.", AQM_AP_SSID);
 }
+
+
 
 /**
  * @brief Event handler for Wi-Fi and IP events
@@ -177,7 +202,7 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
         esp_wifi_connect();
     } 
     else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
-        aqm_data.status.wifi_connected = false;
+        
 
         if (s_retry_num < AQM_MAX_RETRY) {
             esp_wifi_connect();
@@ -186,13 +211,16 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
         } else {
             ESP_LOGE(TAG, "Connection failed. Starting AP portal.");
             start_ap_fallback();
+            xEventGroupSetBits(s_wifi_event_group, WIFI_AP_BIT);
+            
         }
     } 
     else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
         ESP_LOGI(TAG, "Connected! IP address: " IPSTR, IP2STR(&event->ip_info.ip));
         s_retry_num = 0;
-        aqm_data.status.wifi_connected = true;
+        
+        xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
     }
 }
 
@@ -200,6 +228,7 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
  * @brief Initializes Wi-Fi stack and connects to the network
  */
 void aqm_wifi_connect(void) {
+    s_wifi_event_group = xEventGroupCreate();
     // 1. Initialize TCP/IP stack
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
@@ -226,6 +255,10 @@ void aqm_wifi_connect(void) {
         ESP_LOGI(TAG, "Using saved Wi-Fi credentials from NVS.");
         strncpy((char*)wifi_config.sta.ssid, aqm_data.wifi_config.wifi_ssid, sizeof(wifi_config.sta.ssid));
         strncpy((char*)wifi_config.sta.password, aqm_data.wifi_config.wifi_pass, sizeof(wifi_config.sta.password));
+
+        ESP_LOGI(TAG, "SSID: %s", wifi_config.sta.ssid);
+        ESP_LOGI(TAG, "Password: %s", wifi_config.sta.password);
+
     } else {
         ESP_LOGI(TAG, "NVS is empty. Using default Wi-Fi credentials from config.h.");
         strncpy((char*)wifi_config.sta.ssid, AQM_WIFI_SSID, sizeof(wifi_config.sta.ssid));
@@ -237,3 +270,4 @@ void aqm_wifi_connect(void) {
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
 }
+

@@ -5,4 +5,6 @@
 .vscode/ipch
 lib/sen55/src/embedded-i2c-sen5x-master.zip
 docs
-test/aqm_data_log.csv
+src/main.c
+managed_components/espressif__mdns
+test/*.csv

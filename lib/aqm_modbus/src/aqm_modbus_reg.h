@@ -3,6 +3,16 @@
 
 #include <stdint.h>
 
+// --- BIT MASKS FOR CONTROL WORD (Holding Reg 0) ---
+// Must match aqm_control_word_t in aqm_datastore.h
+#define MASK_CW_MB_TCP_EN    (1 << 0)  // Bit 0: Modbus TCP
+#define MASK_CW_MB_RTU_EN    (1 << 1)  // Bit 1: Modbus RTU
+#define MASK_CW_WIFI_EN      (1 << 2)  // Bit 2: Wi-Fi
+#define MASK_CW_MEASURE_EN   (1 << 3)  // Bit 3: Measuring
+#define MASK_CW_RELAY_STATE  (1 << 4)  // Bit 4: Relay (Writing 0=Off, 1=On)
+#define MASK_CW_LED_STATE    (1 << 5)  // Bit 5: LED (Writing 0=Off, 1=On)
+#define MASK_CW_WEB_STA_EN   (1 << 6)  // Bit 6: Web Server in STA mode
+
 // Bit masks for Control Word (Holding Reg)
 #define MASK_LED_CONTROL    (1 << 0)  // Bit 0
 #define MASK_RELAY_CONTROL   (1 << 1)  // Bit 1
@@ -27,7 +37,7 @@ typedef struct {
  */
 typedef struct {
     // --- System Status ---
-    uint16_t status_word;  /**< Reg 0: Bit 0=WiFi, Bit 1=Relay, Bit 2=LED */
+    uint16_t status_word;  /**< Reg 0: */
     
     // --- RAW ADC counts (Scale: 1) ---
     uint16_t so2_raw_val;  /**< Reg 1: SO2 Raw ADC count */
@@ -42,20 +52,22 @@ typedef struct {
     // Example: Master reads 125 -> 1.25 ppm
     uint16_t so2_ppm;      /**< Reg 8: SO2 concentration (PPM * 100) */
     uint16_t h2s_ppm;      /**< Reg 9: H2S concentration (PPM * 100) */
-    uint16_t co_mv;       /**< Reg 10: CO concentration (PPM * 100) */
-    uint16_t nh3_mv;      /**< Reg 11: NH3 concentration (PPM * 100) */
-    uint16_t no2_mv;      /**< Reg 12: NO2 concentration (PPM * 100) */
+
+    // Scale 1000 -> 3 decimal places. Example: Master reads 2560 -> 2.560V
+    uint16_t co_mv;       /**< Reg 10: CO  mV */
+    uint16_t nh3_mv;      /**< Reg 11: NH3 mV  */
+    uint16_t no2_mv;      /**< Reg 12: NO2 mV  */
 
     // --- Voltage Rails (Scale: 1000 -> 3 decimal places) ---
     // Example: Master reads 3315 -> 3.315 V
     uint16_t v3v3_val;     /**< Reg 13: 3.3V Rail Voltage (V * 1000 = mV) */
     uint16_t v5v_val;      /**< Reg 14: 5.0V Rail Voltage (V * 1000 = mV) */
 
-    // --- SEN55 Climate Data (Scale: 10 -> 1 decimal place) ---
-    uint16_t temperature;  /**< Reg 15: Temperature (C * 10). E.g. 245 = 24.5 C */
-    uint16_t humidity;     /**< Reg 16: Relative Humidity (% * 10) */
+    // --- SEN55 Climate Data (Scale: 200, 100) ---
+    uint16_t temperature;  /**< Reg 15: Temperature (C / 200)*/
+    uint16_t humidity;     /**< Reg 16: Relative Humidity (% / 100) */
     
-    // --- SEN55 PM & Index Data (Scale: 1) ---
+    // --- SEN55 PM & Index Data (Scale: 10) ---
     uint16_t pm1_0;        /**< Reg 17: PM 1.0 (ug/m3) */
     uint16_t pm2_5;        /**< Reg 18: PM 2.5 (ug/m3) */
     uint16_t pm4_0;        /**< Reg 19: PM 4.0 (ug/m3) */
