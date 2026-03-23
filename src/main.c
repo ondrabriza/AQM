@@ -1,4 +1,3 @@
-
 #include "aqm_config.h"
 #include "aqm_i2c.h"
 #include "aqm_datastore.h"
@@ -19,8 +18,8 @@
 
 static const char *TAG = "MAIN";
 
-void app_main() {
-
+void app_main(void) {
+    // 1. Initialize hardware (GPIOs, I2C)
     esp_err_t err = aqm_gpio_intialize();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to initialize GPIOs");
@@ -32,6 +31,7 @@ void app_main() {
         return;
     }
 
+    // 2. Initialize NVS (Required to load configurations like Wi-Fi and Control Word)
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_ERROR_CHECK(nvs_flash_erase());
@@ -39,25 +39,76 @@ void app_main() {
     }
     ESP_ERROR_CHECK(ret);
 
+    // 3. Initialize datastore (THIS LOADS THE CONTROL WORD FROM NVS)
     aqm_datastore_init();
+    
+    // Copy the boot state of the Control Word into the Modbus holding registers
+    aqm_control_word_load_nvs();
 
-    // Initialize Wi-Fi and connect to the Access Point
-    aqm_wifi_connect();
-    // Initialize sensors and Modbus communication
-    aqm_init_modbus();
+    //aqm_data.control_word.word = 0xFFFF;
+    //aqm_data.control_word.flags.cw_changed = 0;
 
-    //aqm_datastore_fill_test_data(); // Fill datastore with test data for initial Modbus values
-    //aqm_modbus_update_registers(); // Update Modbus registers with initial data
+    //aqm_modbus_sync_from_nvs();
 
+    ESP_LOGI(TAG, "Boot Control Word: 0x%04X", aqm_data.control_word.word);
+
+    // 4. Start Modbus RTU (Independent of network status)
+    
+    if(aqm_init_modbus_rtu() == ESP_OK) {
+        aqm_data.status.status_word.flags.mb_rtu_en = 1;
+    } else {
+        ESP_LOGE(TAG, "Failed to start Modbus RTU.");
+        
+    }
+
+    // 5. Start Network (Wi-Fi)
+    if (aqm_data.control_word.flags.wifi_en) {
+        ESP_LOGI(TAG, "Wi-Fi is ENABLED in CW. Connecting...");
+        
+        // This runs asynchronously in the background
+        aqm_wifi_connect(); 
+        
+        // Wait until Wi-Fi either connects (STA) or falls back to AP portal
+        // (Assumes s_wifi_event_group is globally accessible from aqm_wifi.h)
+        EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
+                WIFI_CONNECTED_BIT | WIFI_AP_BIT,
+                pdFALSE, pdFALSE, portMAX_DELAY);
+
+        if (bits && WIFI_CONNECTED_BIT | bits && WIFI_AP_BIT) {
+            ESP_LOGI(TAG, "Wi-Fi setup complete. Proceeding with application.");
+            aqm_data.status.status_word.flags.wifi_en = 1;
+
+                // Start HTTP server for provisioning
+            start_web_server();
+            //start_mdns_service(); // aqm.local
+        
+        }
+
+        // 6. Start Modbus TCP (Only if network is up and enabled in CW)
+        if (aqm_data.control_word.flags.mb_tcp_en) {
+            ESP_LOGI(TAG, "Modbus TCP is ENABLED in CW. Starting...");
+            err = aqm_init_modbus_tcp(); // Uncomment once TCP init is fully implemented
+            if (err == ESP_OK)
+            {
+                aqm_data.status.status_word.flags.mb_tcp_en = 1;
+            }
+            
+
+        } else {
+            ESP_LOGI(TAG, "Modbus TCP is DISABLED.");
+            aqm_data.control_word.flags.mb_tcp_en = 0;
+        }
+
+    } else {
+        ESP_LOGI(TAG, "Wi-Fi is DISABLED in CW. Running completely offline.");
+    }
+
+    // 7. Start background tasks (Sensors and Output control)
     aqm_tasks_start();
 
-    while (1)
-    {
-        
-        /* code */
-        vTaskDelay(1000 / portTICK_PERIOD_MS); // Delay for 1 second
-        ESP_LOGI(TAG, "Main loop running...");
+    // 8. Main loop
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(1000)); 
 
     }
-    
 }
