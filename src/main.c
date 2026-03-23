@@ -78,20 +78,26 @@ void app_main(void) {
             ESP_LOGI(TAG, "Wi-Fi setup complete. Proceeding with application.");
             aqm_data.status.status_word.flags.wifi_en = 1;
 
-                // Start HTTP server for provisioning
-            start_web_server();
-            //start_mdns_service(); // aqm.local
+
         
         }
 
         // 6. Start Modbus TCP (Only if network is up and enabled in CW)
-        if (aqm_data.control_word.flags.mb_tcp_en) {
+        if (aqm_data.control_word.flags.mb_tcp_en && aqm_data.status.status_word.flags.wifi_en) {
             ESP_LOGI(TAG, "Modbus TCP is ENABLED in CW. Starting...");
             err = aqm_init_modbus_tcp(); // Uncomment once TCP init is fully implemented
             if (err == ESP_OK)
             {
                 aqm_data.status.status_word.flags.mb_tcp_en = 1;
             }
+        
+        // Must be after ModBus TCP, otherwise does not work
+        if (aqm_data.status.status_word.flags.wifi_en){
+            // Start HTTP server for provisioning
+            start_web_server();
+            start_mdns_service(); // aqm.local
+        }
+
             
 
         } else {
