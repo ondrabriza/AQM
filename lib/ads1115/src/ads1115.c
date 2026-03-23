@@ -16,7 +16,7 @@ static esp_err_t ads1115_write_reg(uint8_t i2c_addr, uint8_t reg, uint16_t value
     buf[0] = reg;                    // Address Pointer Register
     buf[1] = (uint8_t)(value >> 8);  // MSB of data
     buf[2] = (uint8_t)(value & 0xFF); // LSB of data
-    return i2c_write(i2c_addr, &buf, 3);
+    return i2c_write(i2c_addr, buf, 3);
 }
 
 static esp_err_t ads1115_read_reg(uint8_t i2c_addr, uint8_t reg, uint16_t *value) {

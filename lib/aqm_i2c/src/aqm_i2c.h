@@ -8,7 +8,7 @@
 
 
 #define I2C_MASTER_NUM              I2C_NUM_0
-#define I2C_MASTER_FREQ_HZ          10000  // 100kHz
+#define I2C_MASTER_FREQ_HZ          100000  // 100kHz
 #define I2C_MASTER_TIMEOUT_MS       100
 
 /**
