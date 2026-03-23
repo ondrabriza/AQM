@@ -12,5 +12,6 @@ esp_err_t aqm_led_turn_on(void);
 
 esp_err_t aqm_led_turn_off(void);
 
+esp_err_t aqm_led_toggle(void);
 
 #endif // AQM_GPIO_H

@@ -119,6 +119,24 @@ void aqm_control_word_load_nvs(void) {
     nvs_close(my_handle);
 }
 
+void aqm_datastore_fill_nvs_with_defaults(void){
+    // Fill the control word with default values (e.g., all features enabled)
+    aqm_data.control_word.flags.measure_en = 1;
+    aqm_data.control_word.flags.wifi_en = 1;
+    aqm_data.control_word.flags.relay_state = 0; // Relay off by default
+    aqm_data.control_word.flags.led_state = 0;   // LED off by default
+    aqm_data.control_word.flags.web_server_en = 1;
+    aqm_data.control_word.flags.mb_tcp_en = 1;
+    aqm_data.control_word.flags.mb_rtu_en = 1;
+
+    aqm_data.wifi_config.wifi_ssid[0] = '\0'; // Empty SSID
+    aqm_data.wifi_config.wifi_pass[0] = '\0'; // Empty
+    
+
+    // Save these defaults to NVS
+    aqm_control_word_save_nvs();
+    aqm_wifi_config_save_nvs();
+}
 
 
 /**

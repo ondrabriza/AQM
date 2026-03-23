@@ -125,4 +125,10 @@ void aqm_control_word_load_nvs(void);
  */
 void aqm_datastore_fill_test_data(void);
 
+/**
+ * @brief Fills the NVS with default values.
+ * 
+ */
+void aqm_datastore_fill_nvs_with_defaults(void);
+
 #endif // AQM_DATASTORE_H
