@@ -131,4 +131,7 @@ void aqm_datastore_fill_test_data(void);
  */
 void aqm_datastore_fill_nvs_with_defaults(void);
 
+
+void aqm_datastore_set_flag_cw_changed(void);
+
 #endif // AQM_DATASTORE_H

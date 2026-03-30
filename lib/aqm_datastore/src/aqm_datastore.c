@@ -183,3 +183,10 @@ void aqm_datastore_fill_test_data(void) {
 
     aqm_data.status.timestamp = 65540; // 1 hour uptime
 }
+
+
+void aqm_datastore_set_flag_cw_changed(void){
+
+    // Set the cw_changed flag in the control word to indicate that it was changed
+    aqm_data.control_word.flags.cw_changed = 1;
+}
