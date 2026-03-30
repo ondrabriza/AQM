@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "esp_err.h"
+#include <esp_err.h>
 
 // --- I2C Addresses ---
 // These addresses correspond to ADS1115_ADDR_1 (0x48) and ADS1115_ADDR_2 (0x49) from aqm_config.h

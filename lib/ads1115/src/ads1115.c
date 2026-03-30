@@ -1,13 +1,12 @@
 #include "ads1115.h"
 #include "aqm_i2c.h"   // Include your I2C read/write wrapper functions
 #include "aqm_config.h" // Include your global config
-#include "esp_log.h"
 #include "driver/gpio.h"
+
+#include <esp_log.h>
 
 static const char *TAG = "ADS1115_DRV";
 
-// Global handle for the task that should be awakened by the ISR
-static TaskHandle_t s_sensor_task_handle = NULL;
 
 // --- Low-level I2C helpers ---
 
