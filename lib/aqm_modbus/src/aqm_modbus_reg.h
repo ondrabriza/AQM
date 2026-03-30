@@ -64,8 +64,8 @@ typedef struct {
     uint16_t v5v_val;      /**< Reg 14: 5.0V Rail Voltage (V * 1000 = mV) */
 
     // --- SEN55 Climate Data (Scale: 200, 100) ---
-    uint16_t temperature;  /**< Reg 15: Temperature (C / 200)*/
-    uint16_t humidity;     /**< Reg 16: Relative Humidity (% / 100) */
+    uint16_t temperature;  /**< Reg 15: Temperature (C * 200)*/
+    uint16_t humidity;     /**< Reg 16: Relative Humidity (% * 100) */
     
     // --- SEN55 PM & Index Data (Scale: 10) ---
     uint16_t pm1_0;        /**< Reg 17: PM 1.0 (ug/m3) */
