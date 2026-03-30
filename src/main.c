@@ -74,7 +74,7 @@ void app_main(void) {
                 WIFI_CONNECTED_BIT | WIFI_AP_BIT,
                 pdFALSE, pdFALSE, portMAX_DELAY);
 
-        if (bits && WIFI_CONNECTED_BIT | bits && WIFI_AP_BIT) {
+        if ((bits & WIFI_CONNECTED_BIT) | (bits & WIFI_AP_BIT)) {
             ESP_LOGI(TAG, "Wi-Fi setup complete. Proceeding with application.");
             aqm_data.status.status_word.flags.wifi_en = 1;
 
