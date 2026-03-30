@@ -4,7 +4,7 @@ clear
 
 
 %% KOMPLEXNÍ ANALÝZA: Gating & Kompenzace (Vlhkost + Teplota)
-filename = 'data_17_03.csv'; 
+filename = 'data24_3.csv'; 
 
 % 1. Import dat
 opts = detectImportOptions(filename);
@@ -25,7 +25,7 @@ end
 clean_data = data(start_row:end, :);
 
 figure
-s = stackedplot(clean_data, 'XVariable', 'Uptime');
+s = stackedplot(clean_data, 'XVariable', 'Timestamp');
 grid on
 
 % --- KROK 1: GATING (Odstranění glitchů v napájení) ---
@@ -89,7 +89,7 @@ end
 
 % 1. Stacked Plot vyčištěných dat
 figure('Name', 'Vyčištěná data (Gating + Kompenzace T&RH)', 'Units', 'normalized', 'Position', [0.05, 0.1, 0.45, 0.8]);
-s = stackedplot(final_data, 'XVariable', 'Uptime');
+s = stackedplot(final_data, 'XVariable', 'Timestamp');
 s.DisplayLabels = strrep(final_data.Properties.VariableNames(2:end), '_', ' ');
 grid on;
 title('Data po odstranění glitchů a vlivu Vlhkosti & Teploty');
