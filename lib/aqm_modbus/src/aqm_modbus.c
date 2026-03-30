@@ -13,6 +13,7 @@
 static const char *TAG = "AQM_MODBUS";
 
 #define MODBUS_PORT 502
+#define MB_RTU_BAUD_RATE 115200
 
 // Global instances of Modbus registers mapped to memory
 holding_reg_params_t holding_reg_params = {0};
@@ -108,7 +109,7 @@ esp_err_t aqm_init_modbus_rtu(void) {
     comm_info.ser_opts.mode = MB_RTU;
     comm_info.ser_opts.port = UART_NUM_1;                  /* Use UART1 (can be adjusted) */
     comm_info.ser_opts.uid = 1;                            /* Modbus Unit ID (Slave ID) */
-    comm_info.ser_opts.baudrate = 9600;                    /* Default baud rate */
+    comm_info.ser_opts.baudrate = MB_RTU_BAUD_RATE;                    /* Default baud rate */
     comm_info.ser_opts.data_bits = UART_DATA_8_BITS;       /* 8 data bits (standard for Modbus RTU) */
     comm_info.ser_opts.stop_bits = UART_STOP_BITS_1;       /* 1 stop bit */
     comm_info.ser_opts.parity = UART_PARITY_DISABLE;       /* No parity */
@@ -183,16 +184,20 @@ void aqm_modbus_update_registers(void) {
     // ==========================================
     
     // State bits for status word (Bit 0=WiFi, Bit 1=Relay, Bit 2=LED)
-    input_reg_params.status_word = 0;
+    input_reg_params.status_word = aqm_data.status.status_word.word;
+    /*if(aqm_data.status.status_word.flags.measure_en) {
+        input_reg_params.status_word |= MASK_MEASURE_EN;
+    }
     if (aqm_data.status.status_word.flags.wifi_en) {
-        input_reg_params.status_word |= MASK_STATUS_WIFI;
+        input_reg_params.status_word |= MASK_WIFI_EN;
     }
     if (aqm_data.status.status_word.flags.relay_state) {
-        input_reg_params.status_word |= MASK_STATUS_RELAY;
+        input_reg_params.status_word |= MASK_RELAY_STATE;
     }
     if (aqm_data.status.status_word.flags.led_state) {
-        input_reg_params.status_word |= MASK_STATUS_LED; 
-    }
+        input_reg_params.status_word |= MASK_LED_STATE; 
+    }*/
+    
 
     // Copy ADC values
     input_reg_params.so2_raw_val  = aqm_data.adc_raw.so2_raw_val;
@@ -214,7 +219,7 @@ void aqm_modbus_update_registers(void) {
     input_reg_params.v3v3_val = aqm_data.status.v3v3_val;
     input_reg_params.v5v_val  = aqm_data.status.v5v_val;
 
-    // Climate data (Values * 10 for one decimal place)
+    // Climate data (Temperature in C * 200, Humidity in % * 100)
     input_reg_params.temperature = (uint16_t)(aqm_data.sen55.temperature);
     input_reg_params.humidity    = (uint16_t)(aqm_data.sen55.humidity);
 
@@ -238,20 +243,20 @@ void aqm_modbus_update_registers(void) {
     // Master wrote to HR
     if (holding_reg_params.control_word != s_last_control_word) {
         
-        ESP_LOGI(TAG, "Modbus wrote new control word: 0x%04X", holding_reg_params.control_word);
+        //ESP_LOGI(TAG, "Modbus wrote new control word: 0x%04X", holding_reg_params.control_word);
         
         // data flow: Modbus HR -> Global Datastore 
         aqm_data.control_word.word = holding_reg_params.control_word;
         
         s_last_control_word = holding_reg_params.control_word;
         
-        aqm_modbus_set_flag_cw_changed();
+        aqm_datastore_set_flag_cw_changed();
     }
     
     // Datastore changed - Datastore -> Modbus HR
     else if (aqm_data.control_word.word != s_last_control_word) {
         
-        ESP_LOGI(TAG, "CW changed from Datastore: 0x%04X", aqm_data.control_word.word);
+        //ESP_LOGI(TAG, "CW changed from Datastore: 0x%04X", aqm_data.control_word.word);
         
         
         holding_reg_params.control_word = aqm_data.control_word.word;
@@ -259,13 +264,8 @@ void aqm_modbus_update_registers(void) {
         
         s_last_control_word = aqm_data.control_word.word;
         
-        aqm_modbus_set_flag_cw_changed();
+        aqm_datastore_set_flag_cw_changed();
 
     }
 }
 
-void aqm_modbus_set_flag_cw_changed(void){
-
-    // Set the cw_changed flag in the control word to indicate that it was changed
-    aqm_data.control_word.flags.cw_changed = 1;
-}

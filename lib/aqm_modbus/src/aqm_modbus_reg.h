@@ -4,30 +4,20 @@
 #include <stdint.h>
 
 // --- BIT MASKS FOR CONTROL WORD (Holding Reg 0) ---
-// Must match aqm_control_word_t in aqm_datastore.h
-#define MASK_CW_MB_TCP_EN    (1 << 0)  // Bit 0: Modbus TCP
-#define MASK_CW_MB_RTU_EN    (1 << 1)  // Bit 1: Modbus RTU
-#define MASK_CW_WIFI_EN      (1 << 2)  // Bit 2: Wi-Fi
-#define MASK_CW_MEASURE_EN   (1 << 3)  // Bit 3: Measuring
-#define MASK_CW_RELAY_STATE  (1 << 4)  // Bit 4: Relay (Writing 0=Off, 1=On)
-#define MASK_CW_LED_STATE    (1 << 5)  // Bit 5: LED (Writing 0=Off, 1=On)
-#define MASK_CW_WEB_STA_EN   (1 << 6)  // Bit 6: Web Server in STA mode
-
-// Bit masks for Control Word (Holding Reg)
-#define MASK_LED_CONTROL    (1 << 0)  // Bit 0
-#define MASK_RELAY_CONTROL   (1 << 1)  // Bit 1
-
-// Bit masks for Status Word (Input Reg)
-#define MASK_STATUS_LED     (1 << 0)  // Bit 0
-#define MASK_STATUS_RELAY   (1 << 1)  // Bit 1
-#define MASK_STATUS_WIFI    (1 << 2)  // Bit 2
+// Exactly matches aqm_flags_t in aqm_datastore.h
+#define MASK_MEASURE_EN   (1 << 0)  // Bit 0: Measuring enabled
+#define MASK_WIFI_EN      (1 << 1)  // Bit 1: Wi-Fi enabled
+#define MASK_RELAY_STATE  (1 << 2)  // Bit 2: Control of relay state (0 = off, 1 = on)
+#define MASK_LED_STATE    (1 << 3)  // Bit 3: Control of LED state
+#define MASK_WEB_STA_EN   (1 << 4)  // Bit 4: Web server in STA mode enabled
+#define MASK_MB_TCP_EN    (1 << 5)  // Bit 5: Modbus TCP enabled
+#define MASK_MB_RTU_EN    (1 << 6)  // Bit 6: Modbus RTU enabled
 
 /**
  * @brief HOLDING REGISTERS (Read/Write) - Function 03, 06, 16
  */
 typedef struct {
-    uint16_t control_word; /**< Reg 0: Bit 0=LED, Bit 1=Relay */
-    uint16_t test_val;     /**< Reg 1: Test register */
+    uint16_t control_word; /**< Reg 0: Control bits (0=Measure, 1=WiFi, 2=Relay, 3=LED, 4=Web, 5=TCP, 6=RTU */
 } holding_reg_params_t;
 
 /**
@@ -37,7 +27,7 @@ typedef struct {
  */
 typedef struct {
     // --- System Status ---
-    uint16_t status_word;  /**< Reg 0: */
+    uint16_t status_word;  /**< Reg 0: System status*/
     
     // --- RAW ADC counts (Scale: 1) ---
     uint16_t so2_raw_val;  /**< Reg 1: SO2 Raw ADC count */
