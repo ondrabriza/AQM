@@ -3,7 +3,7 @@
     "version": "1.0.0",
     "description": "Driver for SEN55 sensor",
     "keywords": [
-        "sen55",
+        "sen5x",
         "sensor",
         "driver"
     ],
