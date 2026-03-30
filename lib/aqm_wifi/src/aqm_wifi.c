@@ -115,8 +115,7 @@ static esp_err_t api_control_post_handler(httpd_req_t *req) {
         else if (strcmp(target, "mbtcp") == 0) aqm_data.control_word.flags.mb_tcp_en = val;
         else if (strcmp(target, "wifi") == 0)  aqm_data.control_word.flags.wifi_en = val;
 
-        // Signalize main tasku, ze doslo ke zmene control wordu (pro hardware/NVS)
-        aqm_data.control_word.flags.cw_changed = 1;
+        aqm_datastore_set_flag_cw_changed();
         
         ESP_LOGI(TAG, "Control API - Zmeneno %s na %d", target, val);
 
@@ -440,4 +439,7 @@ void aqm_wifi_connect(void) {
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
+    ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
+
+
 }
