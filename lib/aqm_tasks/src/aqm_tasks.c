@@ -19,6 +19,8 @@
 #define SENSOR_TASK_DELAY_MS 1000 // Delay for sensor reading task loop (1 second)
 
 static TaskHandle_t sensor_task_handle = NULL;
+TaskHandle_t factory_reset_task_handle = NULL; // Global handle for factory reset task
+
 static uint8_t sen55_initialized = 0;
 
 static const char *TAG = "AQM_TASKS";
@@ -340,6 +342,23 @@ static void aqm_sensor_task(void *pvParameters) {
     }
 }
 
+
+// --- Task pro bezpečné provedení továrního resetu mimo ISR ---
+static void factory_reset_task(void *pvParameters) {
+    while (1) {
+        // Task spí a čeká, dokud nedostane signál z ISR
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+        ESP_LOGW(TAG, "Long press detected. Performing factory reset...");
+
+        aqm_datastore_fill_nvs_with_defaults(); // Fills NVS with default values for control word and Wi-Fi config
+
+        ESP_LOGW(TAG, "Factory reset applied. Restarting device in 1 second...");
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        esp_restart();
+    }
+}
+
 // -----------------------------------------------------------------------------
 // TASK INITIALIZATION
 // -----------------------------------------------------------------------------
@@ -351,6 +370,9 @@ void aqm_tasks_start(void) {
     // Create the output task. 
     // Stack size: 2048 bytes, Priority: 5 (Standard priority)
     xTaskCreate(aqm_output_task, "output_task", 2048, NULL, 5, NULL);
+
+       // Create the factory reset task.
+    xTaskCreate(factory_reset_task, "factory_reset_task", 2048, NULL, 5, &factory_reset_task_handle);
     
     // Create the sensor task.
     // Stack size: 4096 bytes (due to I2C and sensor reading), Priority: 6 (Higher than output task)
