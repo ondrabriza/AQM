@@ -1,6 +1,5 @@
 #include "aqm_gpio.h"
 #include "aqm_config.h"
-#include "aqm_datastore.h"
 
 #include <esp_timer.h>
 #include <driver/gpio.h>
@@ -8,9 +7,9 @@
 #include <esp_log.h>
 #include <esp_system.h>
 
-
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
+#include "aqm_tasks.h"
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 static const char *TAG = "AQM_GPIO";
 
@@ -20,13 +19,12 @@ static esp_err_t aqm_relay_init(void);
 static esp_err_t aqm_adcs_rdy_pins_init(void);
 static esp_err_t boot_button_init(void);
 static void boot_button_isr_handler(void* arg);
-static void factory_reset_task(void *pvParameters); // Nový task pro reset
 
 static uint8_t led_state = 0; 
-#define DEBOUNCE_TIME_US 200000    // 200 ms pro debounce
+static uint8_t relay_state = 0;
+#define DEBOUNCE_TIME_US 50000    // debounce time
 #define LONG_PRESS_TIME_US 10000000 // 10 seconds for factory reset
 
-static TaskHandle_t reset_task_handle = NULL;
 
 esp_err_t aqm_gpio_intialize(void) {
     esp_err_t err;
@@ -51,8 +49,7 @@ esp_err_t aqm_gpio_intialize(void) {
         return err;
     }
 
-    // Vytvoření asynchronního tasku pro obsluhu továrního resetu
-    xTaskCreate(factory_reset_task, "factory_reset_task", 4096, NULL, 5, &reset_task_handle);
+ 
 
     /* Configure GPIOs for inputs with interrupts */
     err = aqm_adcs_rdy_pins_init();
@@ -138,8 +135,8 @@ static void IRAM_ATTR boot_button_isr_handler(void* arg) {
 
             if (press_duration >= LONG_PRESS_TIME_US) {
                 BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-                if (reset_task_handle != NULL) {
-                    vTaskNotifyGiveFromISR(reset_task_handle, &xHigherPriorityTaskWoken);
+                if (factory_reset_task_handle != NULL) {
+                    vTaskNotifyGiveFromISR(factory_reset_task_handle, &xHigherPriorityTaskWoken);
                     portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
                 }
             } else if (press_duration >= DEBOUNCE_TIME_US) {
@@ -151,39 +148,42 @@ static void IRAM_ATTR boot_button_isr_handler(void* arg) {
     }
 }
 
-// --- Task pro bezpečné provedení továrního resetu mimo ISR ---
-static void factory_reset_task(void *pvParameters) {
-    while (1) {
-        // Task spí a čeká, dokud nedostane signál z ISR
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-        ESP_LOGW(TAG, "Long press detected. Performing factory reset...");
-
-        aqm_datastore_fill_nvs_with_defaults(); // Fills NVS with default values for control word and Wi-Fi config
-
-        ESP_LOGW(TAG, "Factory reset applied. Restarting device in 1 second...");
-        vTaskDelay(pdMS_TO_TICKS(1000));
-        esp_restart();
-    }
-}
 
 esp_err_t aqm_relay_turn_on(void) {
+    relay_state = 1; // Update actual status
     return gpio_set_level(RELAY_PIN, 0); // Active LOW
 }
 
 esp_err_t aqm_relay_turn_off(void) {
+    relay_state = 0; // Update actual status
     return gpio_set_level(RELAY_PIN, 1); // Active LOW
 }
 
 esp_err_t aqm_led_turn_on(void) {
+    led_state = 1; // Update actual status
     return gpio_set_level(LED_PIN, 1); // Active HIGH
 }
 
 esp_err_t aqm_led_turn_off(void) {
+    led_state = 0; // Update actual status
     return gpio_set_level(LED_PIN, 0); // Active HIGH
 }
 
 esp_err_t aqm_led_toggle(void) {
     led_state = !led_state;
     return gpio_set_level(LED_PIN, led_state);
+}
+
+esp_err_t aqm_relay_toggle(void) {
+    relay_state = !relay_state;
+    return gpio_set_level(RELAY_PIN, relay_state ? 0 : 1); // Active LOW
+}
+
+uint8_t aqm_get_led_state(void) {
+    return led_state;
+}
+
+uint8_t aqm_get_relay_state(void) {
+    return relay_state;
 }
