@@ -145,7 +145,7 @@ def main():
                         client.connect()
 
                     # 2. Samotné čtení dat
-                    result = client.read_input_registers(address=min_address, count=register_count, device_id=slave_id)
+                    result = client.read_input_registers(address=min_address, count=register_count, slave=slave_id)
                     
                     if not result.isError():
                         regs = result.registers
