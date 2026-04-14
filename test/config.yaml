@@ -194,7 +194,7 @@ modbus:
   - name: "aqm_rtu"
     type: serial
     method: rtu
-    port: "COM8"
+    port: "/dev/ttyModbus"
     baudrate: 115200
     stopbits: 1
     bytesize: 8
