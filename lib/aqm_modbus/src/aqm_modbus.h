@@ -5,7 +5,7 @@
 esp_err_t aqm_init_modbus_tcp(void);
 esp_err_t aqm_init_modbus_rtu(void);
 
-void aqm_modbus_update_registers(void);
+//void aqm_modbus_update_registers(void);
 
 #endif // AQM_MODBUS_H
 

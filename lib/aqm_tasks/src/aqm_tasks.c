@@ -18,6 +18,7 @@
 #define AQM_ADC_MAX_WAIT_TIME_MS 150 // Max time to wait for ADC conversion before timeout
 #define SENSOR_TASK_DELAY_MS 1000 // Delay for sensor reading task loop (1 second)
 
+#         
 static TaskHandle_t sensor_task_handle = NULL;
 TaskHandle_t factory_reset_task_handle = NULL; // Global handle for factory reset task
 
@@ -35,49 +36,51 @@ static const char *TAG = "AQM_TASKS";
  */
 static void aqm_output_task(void *pvParameters) {
     ESP_LOGI(TAG, "Output Task Started");
-
+    
     while(1){
+
+
         // Check if there was any change in the Control Word
-        if (aqm_data.control_word.flags.cw_changed == 1) {
+
             
-            ESP_LOGI(TAG, "Control Word change detected. Processing hardware updates...");
+            //ESP_LOGI(TAG, "Control Word change detected. Processing hardware updates...");
 
             // 1. Evaluate Relay State (Intent vs Reality)
-            if (aqm_data.control_word.flags.relay_state != aqm_data.status.status_word.flags.relay_state) {
-                if (aqm_data.control_word.flags.relay_state == 1) {
+            if (aqm_data.config.control_word.flags.relay_state != aqm_data.data.status.status_word.flags.relay_state) {
+                if (aqm_data.config.control_word.flags.relay_state == 1) {
                     ESP_LOGI(TAG, "CW Command: Relay ON");
                     if (aqm_relay_turn_on() == ESP_OK) {
-                        aqm_data.status.status_word.flags.relay_state = 1; // Update actual status
+                        aqm_data.data.status.status_word.flags.relay_state = 1; // Update actual status
                     }
                 } else {
                     ESP_LOGI(TAG, "CW Command: Relay OFF");
                     if (aqm_relay_turn_off() == ESP_OK) {
-                        aqm_data.status.status_word.flags.relay_state = 0;
+                        aqm_data.data.status.status_word.flags.relay_state = 0;
                     }
                 }
             }
 
             // 2. Evaluate LED State (Intent vs Reality)
-            if (aqm_data.control_word.flags.led_state != aqm_data.status.status_word.flags.led_state) {
-                if (aqm_data.control_word.flags.led_state == 1) {
+            if (aqm_data.config.control_word.flags.led_state != aqm_data.data.status.status_word.flags.led_state) {
+                if (aqm_data.config.control_word.flags.led_state == 1) {
                     ESP_LOGI(TAG, "CW Command: LED ON");
                     if (aqm_led_turn_on() == ESP_OK) {
-                        aqm_data.status.status_word.flags.led_state = 1;
+                        aqm_data.data.status.status_word.flags.led_state = 1;
                     }
                 } else {
                     ESP_LOGI(TAG, "CW Command: LED OFF");
                     if (aqm_led_turn_off() == ESP_OK) {
-                        aqm_data.status.status_word.flags.led_state = 0;
+                        aqm_data.data.status.status_word.flags.led_state = 0;
                     }
                 }
             }
 
             // 3. Save the new configuration to NVS memory
-            ESP_LOGI(TAG, "Saving updated Control Word to NVS.");
-            aqm_control_word_save_nvs(); 
+            //ESP_LOGI(TAG, "Saving updated Control Word to NVS.");
+            //aqm_control_word_save_nvs(); 
             
             // 4. Clear the flag so we don't process or save again until the next change
-            aqm_data.control_word.flags.cw_changed = 0;
+            aqm_data.config.control_word.flags.cw_changed = 0;
 
             // Determine if the change requires a full system REBOOT.
             // Certain features (like Wi-Fi stack or Modbus instances) cannot be 
@@ -85,24 +88,24 @@ static void aqm_output_task(void *pvParameters) {
             uint8_t needs_reboot = 0;
             
             // Example 1: Wi-Fi was disabled by user, but we are currently connected
-            if (!aqm_data.control_word.flags.wifi_en && aqm_data.status.status_word.flags.wifi_en) {
+            if (!aqm_data.config.control_word.flags.wifi_en && aqm_data.data.status.status_word.flags.wifi_en) {
                 ESP_LOGW(TAG, "Wi-Fi disable requested.");
                 needs_reboot = 1;
             }
             
             // Example 2: Wi-Fi was enabled by user, but we are currently offline
             // (Assuming you track this, or just trigger reboot if wifi_en state toggled)
-            if (aqm_data.control_word.flags.wifi_en && !aqm_data.status.status_word.flags.wifi_en) {
+            if (aqm_data.config.control_word.flags.wifi_en && !aqm_data.data.status.status_word.flags.wifi_en) {
                  ESP_LOGW(TAG, "Wi-Fi enable requested.");
                  needs_reboot = 1;
             }
 
-            /*if (aqm_data.control_word.flags.mb_tcp_en && !aqm_data.status.status_word.flags.mb_tcp_en) {
+            /*if (aqm_data.config.control_word.flags.mb_tcp_en && !aqm_data.data.status.status_word.flags.mb_tcp_en) {
                 ESP_LOGW(TAG, "Modbus TCP enable requested.");
                 needs_reboot = 1;
             }
 
-            if (!aqm_data.control_word.flags.mb_tcp_en && aqm_data.status.status_word.flags.mb_tcp_en) {
+            if (!aqm_data.config.control_word.flags.mb_tcp_en && aqm_data.data.status.status_word.flags.mb_tcp_en) {
                 ESP_LOGW(TAG, "Modbus TCP disable requested.");
                 needs_reboot = 1;
             }*/
@@ -120,7 +123,7 @@ static void aqm_output_task(void *pvParameters) {
                 esp_restart();
             }
 
-        }
+        
 
         // Delay to yield to other RTOS tasks
         vTaskDelay(pdMS_TO_TICKS(OUTPUT_TASK_DELAY_MS));
@@ -178,8 +181,8 @@ static void aqm_read_all_adc_channels(void) {
     err1 = aqm_adc_wait_and_read(ADS1115_ADDR_1, &val1);
     err2 = aqm_adc_wait_and_read(ADS1115_ADDR_2, &val2);
 
-    if (err1 == ESP_OK) aqm_data.adc_raw.so2_raw_val = (uint16_t)val1;
-    if (err2 == ESP_OK) aqm_data.adc_raw.co_raw_val = (uint16_t)val2;
+    if (err1 == ESP_OK) aqm_data.data.adc_raw.so2_raw_val = (uint16_t)val1;
+    if (err2 == ESP_OK) aqm_data.data.adc_raw.mics_red_raw_val = (uint16_t)val2;
 
     // ==========================================
     // PAIR 2: 3.3V (Chip 1) and NH3 (Chip 2)
@@ -191,10 +194,10 @@ static void aqm_read_all_adc_channels(void) {
     err2 = aqm_adc_wait_and_read(ADS1115_ADDR_2, &val2);
 
     if (err1 == ESP_OK) {
-        aqm_data.adc_raw.v3v3_raw_val = (uint16_t)val1;
-        aqm_data.status.v3v3_val = (uint16_t)(ads1115_compute_mv(val1, ADS1115_PGA_4_096V));
+        aqm_data.data.adc_raw.v3v3_raw_val = (uint16_t)val1;
+        aqm_data.data.status.v3v3_mv = (uint16_t)(ads1115_compute_mv(val1, ADS1115_PGA_4_096V));
     }
-    if (err2 == ESP_OK) aqm_data.adc_raw.nh3_raw_val = (uint16_t)val2;
+    if (err2 == ESP_OK) aqm_data.data.adc_raw.mics_nh3_raw_val = (uint16_t)val2;
 
     // ==========================================
     // PAIR 3: H2S (Chip 1) and NO2 (Chip 2)
@@ -205,8 +208,8 @@ static void aqm_read_all_adc_channels(void) {
     err1 = aqm_adc_wait_and_read(ADS1115_ADDR_1, &val1);
     err2 = aqm_adc_wait_and_read(ADS1115_ADDR_2, &val2);
 
-    if (err1 == ESP_OK) aqm_data.adc_raw.h2s_raw_val = (uint16_t)val1;
-    if (err2 == ESP_OK) aqm_data.adc_raw.no2_raw_val = (uint16_t)val2;
+    if (err1 == ESP_OK) aqm_data.data.adc_raw.h2s_raw_val = (uint16_t)val1;
+    if (err2 == ESP_OK) aqm_data.data.adc_raw.mics_ox_raw_val = (uint16_t)val2;
 
     // ==========================================
     // REMAINING CHANNEL: 5.0V (Chip 1) 
@@ -216,21 +219,50 @@ static void aqm_read_all_adc_channels(void) {
     err1 = aqm_adc_wait_and_read(ADS1115_ADDR_1, &val1);
     
     if (err1 == ESP_OK) {
-        aqm_data.adc_raw.v5v_raw_val = (uint16_t)val1;
-        aqm_data.status.v5v_val = (uint16_t)(ads1115_compute_mv(val1, ADS1115_PGA_4_096V) * 2); 
+        aqm_data.data.adc_raw.v5v_raw_val = (uint16_t)val1;
+        aqm_data.data.status.v5v_mv = (uint16_t)(ads1115_compute_mv(val1, ADS1115_PGA_4_096V) * 2); 
     }
 
-    aqm_data.status.timestamp = (uint32_t)(xTaskGetTickCount() / configTICK_RATE_HZ); 
+    aqm_data.data.status.timestamp = pdTICKS_TO_MS(xTaskGetTickCount()); 
 }
 
-static void aqm_calculate_gas_concentrations(void) {
-    aqm_data.gases.so2_ppm = ads1115_compute_mv(aqm_data.adc_raw.so2_raw_val, ADS1115_PGA_4_096V) / SENSITIVITY_SO2_MV_PER_PPM;
-    aqm_data.gases.h2s_ppm = ads1115_compute_mv(aqm_data.adc_raw.h2s_raw_val, ADS1115_PGA_4_096V) / SENSITIVITY_H2S_MV_PER_PPM;
+static void aqm_calculate_sgx_gas_concentrations(void) {
+    aqm_data.data.gases.so2_ppm = (uint16_t)(((ads1115_compute_mv(aqm_data.data.adc_raw.so2_raw_val, ADS1115_PGA_4_096V) / SENSITIVITY_SO2_MV_PER_PPM) * 10.0f) + 0.5f); // 0.5f added for rounding to nearest integer when casting to uint16_t
+    aqm_data.data.gases.h2s_ppm = (uint16_t)(((ads1115_compute_mv(aqm_data.data.adc_raw.h2s_raw_val, ADS1115_PGA_4_096V) / SENSITIVITY_H2S_MV_PER_PPM) * 10.0f) + 0.5f);
 
-    aqm_data.gases.co_mv  = ads1115_compute_mv(aqm_data.adc_raw.co_raw_val, ADS1115_PGA_4_096V); 
-    aqm_data.gases.nh3_mv = ads1115_compute_mv(aqm_data.adc_raw.nh3_raw_val, ADS1115_PGA_4_096V);
-    aqm_data.gases.no2_mv = ads1115_compute_mv(aqm_data.adc_raw.no2_raw_val, ADS1115_PGA_4_096V);
+
 }
+
+static void calculate_mics_r(uint16_t mics_adc_raw, ads1115_pga_t pga, uint16_t voltage_in_mv, uint32_t r_load, uint32_t *out_r) {
+    
+    float v_out_mv = ads1115_compute_mv(mics_adc_raw, pga);
+
+    
+    if (v_out_mv >= (float)voltage_in_mv) {
+        *out_r = 0xFFFFFFFF;
+        return;
+    }
+
+    //  Rs = R_load * (V_out / (V_in - V_out))
+    float rs_calc = (float)r_load * (v_out_mv / ((float)voltage_in_mv - v_out_mv));
+
+    *out_r = (uint32_t)(rs_calc + 0.5f);
+}
+
+static void aqm_calculate_data_from_mics(void){
+    
+    calculate_mics_r(aqm_data.data.adc_raw.mics_red_raw_val, ADS1115_PGA_4_096V, aqm_data.data.status.v3v3_mv, MICS_RED_LOAD, &aqm_data.data.gases.mics_red_r);
+    calculate_mics_r(aqm_data.data.adc_raw.mics_ox_raw_val, ADS1115_PGA_4_096V, aqm_data.data.status.v3v3_mv, MICS_OX_LOAD, &aqm_data.data.gases.mics_ox_r);
+    calculate_mics_r(aqm_data.data.adc_raw.mics_nh3_raw_val, ADS1115_PGA_4_096V, aqm_data.data.status.v3v3_mv, MICS_NH3_LOAD, &aqm_data.data.gases.mics_nh3_r);
+
+    aqm_data.data.gases.mics_red = (uint16_t)(((float)aqm_data.data.gases.mics_red_r / MICS_RED_BASE_R)*100.0f);
+    aqm_data.data.gases.mics_ox = (uint16_t)(((float)aqm_data.data.gases.mics_ox_r / MICS_OX_BASE_R)*100.0f);
+    aqm_data.data.gases.mics_nh3 = (uint16_t)(((float)aqm_data.data.gases.mics_nh3_r / MICS_NH3_BASE_R)*100.0f);
+
+
+}
+
+
 
 static void aqm_sen55_read_measurements(void) {
     int16_t error;
@@ -274,30 +306,32 @@ static void aqm_sen55_read_measurements(void) {
         ESP_LOGE(TAG, "Error reading SEN55 values: %i", error);
     } else {
         // 4. STORE TO DATASTORE
-        aqm_data.sen55.pm1_0 = pm1p0;
-        aqm_data.sen55.pm2_5 = pm2p5; 
-        aqm_data.sen55.pm4_0 = pm4p0;
-        aqm_data.sen55.pm10_0 = pm10p0;
-        aqm_data.sen55.temperature = temperature; 
-        aqm_data.sen55.humidity = humidity; 
-        aqm_data.sen55.voc_index = voc_index; 
-        aqm_data.sen55.nox_index = nox_index; 
+        aqm_data.data.sen55.pm1_0 = pm1p0;
+        aqm_data.data.sen55.pm2_5 = pm2p5; 
+        aqm_data.data.sen55.pm4_0 = pm4p0;
+        aqm_data.data.sen55.pm10_0 = pm10p0;
+        aqm_data.data.sen55.temperature = temperature; 
+        aqm_data.data.sen55.humidity = humidity; 
+        aqm_data.data.sen55.voc_index = voc_index; 
+        aqm_data.data.sen55.nox_index = nox_index; 
     }
 }
 
 
 static void aqm_print_measured_values(void) {
 
+    ESP_LOGI(TAG, "=== Sensor Readings at %llu ms ===", aqm_data.data.status.timestamp);
+
     ESP_LOGI(TAG, "SEN55: PM1.0: %.1f, PM2.5: %.1f, PM4.0: %.1f, PM10.0: %.1f [ug/m3]", 
-            aqm_data.sen55.pm1_0/10.0f, aqm_data.sen55.pm2_5/10.0f, aqm_data.sen55.pm4_0/10.0f, aqm_data.sen55.pm10_0/10.0f);
+            aqm_data.data.sen55.pm1_0/10.0f, aqm_data.data.sen55.pm2_5/10.0f, aqm_data.data.sen55.pm4_0/10.0f, aqm_data.data.sen55.pm10_0/10.0f);
 
     ESP_LOGI(TAG, "Env: Temp: %.1f°C, Hum: %.1f%%, VOC: %.1f, NOx: %.1f", 
-            aqm_data.sen55.temperature / 200.0f, aqm_data.sen55.humidity / 100.0f, aqm_data.sen55.voc_index/10.0f, aqm_data.sen55.nox_index/10.0f);
+            aqm_data.data.sen55.temperature / 200.0f, aqm_data.data.sen55.humidity / 100.0f, aqm_data.data.sen55.voc_index/10.0f, aqm_data.data.sen55.nox_index/10.0f);
 
-    ESP_LOGI(TAG, "Gases: SO2: %.2fppm, H2S: %.2fppm, CO: %.2fmV, NH3: %.2fmV, NO2: %.2fmV", 
-            aqm_data.gases.so2_ppm, aqm_data.gases.h2s_ppm, aqm_data.gases.co_mv, aqm_data.gases.nh3_mv, aqm_data.gases.no2_mv);
+    ESP_LOGI(TAG, "Gases: SO2: %.1f ppm, H2S: %.1f ppm, MICS_RED: %.2f Idx, MICS_NH3: %.2f Idx, MICS_OX: %.2f Idx", 
+            aqm_data.data.gases.so2_ppm/10.0f, aqm_data.data.gases.h2s_ppm/10.0f, aqm_data.data.gases.mics_red/100.0f, aqm_data.data.gases.mics_nh3/100.0f, aqm_data.data.gases.mics_ox/100.0f);
 
-    ESP_LOGI(TAG, "Status: 3.3V: %u mV, 5.0V: %u mV", aqm_data.status.v3v3_val, aqm_data.status.v5v_val);
+    ESP_LOGI(TAG, "Status: 3.3V: %u mV, 5.0V: %u mV", aqm_data.data.status.v3v3_mv, aqm_data.data.status.v5v_mv);
 
 }
 
@@ -325,9 +359,10 @@ static void aqm_sensor_task(void *pvParameters) {
     while(1) {
         
         // --- Conditionally Read Sensors based on Control Word ---
-        if (aqm_data.control_word.flags.measure_en == 1) {
+        if (aqm_data.config.control_word.flags.measure_en == 1) {
             aqm_read_all_adc_channels(); 
-            aqm_calculate_gas_concentrations(); 
+            aqm_calculate_sgx_gas_concentrations(); 
+            aqm_calculate_data_from_mics();
             aqm_sen55_read_measurements();
 
             aqm_print_measured_values();
@@ -335,7 +370,7 @@ static void aqm_sensor_task(void *pvParameters) {
         
         // --- Always Update Modbus Registers ---
         // Processes incoming CW changes from Modbus Master and updates status
-        aqm_modbus_update_registers();
+        //aqm_modbus_update_registers();
         
         // Sleep until exactly the defined frequency has passed
         vTaskDelayUntil(&xLastWakeTime, xFrequency);

@@ -60,24 +60,24 @@ static esp_err_t api_data_get_handler(httpd_req_t *req) {
     // Predpokladam nazvy promennych voc, nox a no2_ppm ve tve strukture. 
     // Pokud se jmenuji jinak (např. voc_index), uprav to prosim nize.
     snprintf(json_response, sizeof(json_response),
-        "{\"temp\":%d,\"hum\":%d,\"pm25\":%d,\"so2\":%.2f,\"co\":%.2f,\"h2s\":%.2f,\"nh3\":%.2f,\"no2\":%.2f,\"voc\":%d,\"nox\":%d,\"v33\":%d,\"v5v\":%d,"
+        "{\"temp\":%.1f,\"hum\":%.1f,\"pm25\":%.1f,\"so2\":%.1f,\"co\":%.2f,\"h2s\":%.1f,\"nh3\":%.2f,\"no2\":%.2f,\"voc\":%d,\"nox\":%d,\"v33\":%d,\"v5v\":%d,"
         "\"relay\":%d,\"led\":%d,\"mbtcp\":%d,\"wifi\":%d}",
-        aqm_data.sen55.temperature/200,
-        aqm_data.sen55.humidity/100,
-        aqm_data.sen55.pm2_5/10,
-        aqm_data.gases.so2_ppm,
-        aqm_data.gases.co_mv,
-        aqm_data.gases.h2s_ppm,
-        aqm_data.gases.nh3_mv,
-        aqm_data.gases.no2_mv,
-        aqm_data.sen55.voc_index/10,
-        aqm_data.sen55.nox_index/10,
-        aqm_data.status.v3v3_val,
-        aqm_data.status.v5v_val,
-        aqm_data.status.status_word.flags.relay_state,
-        aqm_data.status.status_word.flags.led_state,
-        aqm_data.status.status_word.flags.mb_tcp_en,
-        aqm_data.status.status_word.flags.wifi_en
+        aqm_data.data.sen55.temperature/200.0f,
+        aqm_data.data.sen55.humidity/100.0f,
+        aqm_data.data.sen55.pm2_5/10.0f,
+        aqm_data.data.gases.so2_ppm/10.0f,
+        aqm_data.data.gases.mics_ox/100.0f,
+        aqm_data.data.gases.h2s_ppm/10.0f,
+        aqm_data.data.gases.mics_nh3/100.0f,
+        aqm_data.data.gases.mics_red/100.0f,
+        aqm_data.data.sen55.voc_index/10,
+        aqm_data.data.sen55.nox_index/10,
+        aqm_data.data.status.v3v3_mv,
+        aqm_data.data.status.v5v_mv,
+        aqm_data.data.status.status_word.flags.relay_state,
+        aqm_data.data.status.status_word.flags.led_state,
+        aqm_data.data.status.status_word.flags.mb_tcp_en,
+        aqm_data.data.status.status_word.flags.wifi_en
     );
 
     httpd_resp_set_type(req, "application/json");
@@ -110,10 +110,10 @@ static esp_err_t api_control_post_handler(httpd_req_t *req) {
         
         uint8_t val = (atoi(val_str) > 0) ? 1 : 0;
 
-        if (strcmp(target, "relay") == 0)      aqm_data.control_word.flags.relay_state = val;
-        else if (strcmp(target, "led") == 0)   aqm_data.control_word.flags.led_state = val;
-        else if (strcmp(target, "mbtcp") == 0) aqm_data.control_word.flags.mb_tcp_en = val;
-        else if (strcmp(target, "wifi") == 0)  aqm_data.control_word.flags.wifi_en = val;
+        if (strcmp(target, "relay") == 0)      aqm_data.config.control_word.flags.relay_state = val;
+        else if (strcmp(target, "led") == 0)   aqm_data.config.control_word.flags.led_state = val;
+        else if (strcmp(target, "mbtcp") == 0) aqm_data.config.control_word.flags.mb_tcp_en = val;
+        else if (strcmp(target, "wifi") == 0)  aqm_data.config.control_word.flags.wifi_en = val;
 
         aqm_datastore_set_flag_cw_changed();
         
@@ -214,9 +214,9 @@ static esp_err_t wifi_config_get_handler(httpd_req_t *req) {
         "<div class='data-item'>NOX<br><span id='nox' class='data-val'>--</span> Idx</div>"
         "<div class='data-item'>SO2<br><span id='so2' class='data-val'>--</span> ppm</div>"
         "<div class='data-item'>H2S<br><span id='h2s' class='data-val'>--</span> ppm</div>"
-        "<div class='data-item'>CO<br><span id='co' class='data-val'>--</span> mV</div>"
-        "<div class='data-item'>NH3<br><span id='nh3' class='data-val'>--</span> mV</div>"
-        "<div class='data-item'>NO2<br><span id='no2' class='data-val'>--</span> mV</div>"
+        "<div class='data-item'>CO<br><span id='co' class='data-val'>--</span> ratio</div>"
+        "<div class='data-item'>NH3<br><span id='nh3' class='data-val'>--</span> ratio</div>"
+        "<div class='data-item'>NO2<br><span id='no2' class='data-val'>--</span> ratio</div>"
         "<div class='data-item'>3.3V Rail<br><span id='v33' class='data-val'>--</span> mV</div>"
         "<div class='data-item'>5V Rail<br><span id='v5v' class='data-val'>--</span> mV</div>"
         "</div>"

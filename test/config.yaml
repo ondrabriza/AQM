@@ -1,0 +1,378 @@
+# =========================================================
+# MODBUS COMMUNICATION (TCP & RTU Parallel)
+# =========================================================
+modbus:
+  # --- 1. PRIMARY ROUTE: Modbus TCP ---
+  - name: "aqm_tcp"
+    type: tcp
+    host: aqm.local # It is recommended to use an IP address instead of .local
+    port: 502
+    timeout: 1
+    sensors:
+      # --- HOLDING REGISTERS ---
+      - name: aqm_tcp_control_word
+        unique_id: aqm.tcp_control_word
+        address: 0
+        precision: 0
+        <<: &aqm_defaults
+          slave: 1
+          input_type: input
+          scan_interval: 10
+          state_class: measurement
+        input_type: holding 
+
+      # --- INPUT REGISTERS: Status ---
+      - name: aqm_tcp_uptime
+        unique_id: aqm.tcp_uptime
+        address: 2
+        data_type: uint64
+        swap: word
+        <<: *aqm_defaults
+      - name: aqm_tcp_v3v3_val
+        unique_id: aqm.tcp_v3v3_val
+        address: 6
+        scale: 0.001
+        precision: 3
+        <<: *aqm_defaults
+      - name: aqm_tcp_v5v_val
+        unique_id: aqm.tcp_v5v_val
+        address: 7
+        scale: 0.001
+        precision: 3
+        <<: *aqm_defaults
+
+      # --- INPUT REGISTERS: SEN55 ---
+      - name: aqm_tcp_pm1_0
+        unique_id: aqm.tcp_sen55_pm1
+        address: 8
+        scale: 0.1
+        precision: 1
+        <<: *aqm_defaults
+      - name: aqm_tcp_pm2_5
+        unique_id: aqm.tcp_sen55_pm2_5
+        address: 9
+        scale: 0.1
+        precision: 1
+        <<: *aqm_defaults
+      - name: aqm_tcp_pm4_0
+        unique_id: aqm.tcp_sen55_pm4
+        address: 10
+        scale: 0.1
+        precision: 1
+        <<: *aqm_defaults
+      - name: aqm_tcp_pm10_0
+        unique_id: aqm.tcp_sen55_pm10
+        address: 11
+        scale: 0.1
+        precision: 1
+        <<: *aqm_defaults
+      - name: aqm_tcp_humidity
+        unique_id: aqm.tcp_sen55_humidity
+        address: 12
+        scale: 0.01
+        precision: 1
+        data_type: int16
+        <<: *aqm_defaults
+      - name: aqm_tcp_temperature
+        unique_id: aqm.tcp_sen55_temp
+        address: 13
+        scale: 0.005
+        precision: 1
+        data_type: int16
+        <<: *aqm_defaults
+      - name: aqm_tcp_voc_index
+        unique_id: aqm.tcp_sen55_voc_index
+        address: 14
+        scale: 0.1
+        precision: 1
+        data_type: int16
+        <<: *aqm_defaults
+      - name: aqm_tcp_nox_index
+        unique_id: aqm.tcp_sen55_nox_index
+        address: 15
+        scale: 0.1
+        precision: 1
+        data_type: int16
+        <<: *aqm_defaults
+
+      # --- INPUT REGISTERS: Gases ---
+      - name: aqm_tcp_so2_ppm
+        unique_id: aqm.tcp_so2_ppm
+        address: 16
+        scale: 0.1
+        precision: 2
+        <<: *aqm_defaults
+      - name: aqm_tcp_h2s_ppm
+        unique_id: aqm.tcp_h2s_ppm
+        address: 17
+        scale: 0.1
+        precision: 2
+        <<: *aqm_defaults
+      - name: aqm_tcp_mics_ox
+        unique_id: aqm.tcp_mics_ox
+        address: 18
+        scale: 0.01
+        precision: 2
+        <<: *aqm_defaults
+      - name: aqm_tcp_mics_red
+        unique_id: aqm.tcp_mics_red
+        address: 19
+        scale: 0.01
+        precision: 2
+        <<: *aqm_defaults
+      - name: aqm_tcp_mics_nh3
+        unique_id: aqm.tcp_mics_nh3
+        address: 20
+        scale: 0.01
+        precision: 2
+        <<: *aqm_defaults
+        
+      # DUMMY SENSOR - Bridging the gap at address 21 to maintain a contiguous batch read
+      - name: aqm_tcp_dummy_21
+        unique_id: aqm.tcp_dummy_21
+        address: 21
+        <<: *aqm_defaults
+
+      - name: aqm_tcp_mics_ox_r
+        unique_id: aqm.tcp_mics_ox_r
+        address: 22
+        data_type: uint32
+        swap: word
+        <<: *aqm_defaults
+      - name: aqm_tcp_mics_red_r
+        unique_id: aqm.tcp_mics_red_r
+        address: 24
+        data_type: uint32
+        swap: word
+        <<: *aqm_defaults
+      - name: aqm_tcp_mics_nh3_r
+        unique_id: aqm.tcp_mics_nh3_r
+        address: 26
+        data_type: uint32
+        swap: word
+        <<: *aqm_defaults
+
+      # --- INPUT REGISTERS: ADC Raw ---
+      - name: aqm_tcp_so2_raw
+        unique_id: aqm.tcp_so2_raw
+        address: 28
+        precision: 0
+        <<: *aqm_defaults
+      - name: aqm_tcp_v3v3_raw
+        unique_id: aqm.tcp_v3v3_raw
+        address: 29
+        precision: 0
+        <<: *aqm_defaults
+      - name: aqm_tcp_v5v_raw
+        unique_id: aqm.tcp_v5v_raw
+        address: 30
+        precision: 0
+        <<: *aqm_defaults
+      - name: aqm_tcp_h2s_raw
+        unique_id: aqm.tcp_h2s_raw
+        address: 31
+        precision: 0
+        <<: *aqm_defaults
+      - name: aqm_tcp_mics_red_raw
+        unique_id: aqm.tcp_mics_red_raw
+        address: 32
+        precision: 0
+        <<: *aqm_defaults
+      - name: aqm_tcp_mics_ox_raw
+        unique_id: aqm.tcp_mics_ox_raw
+        address: 33
+        precision: 0
+        <<: *aqm_defaults
+      - name: aqm_tcp_mics_nh3_raw
+        unique_id: aqm.tcp_mics_nh3_raw
+        address: 34
+        precision: 0
+        <<: *aqm_defaults
+
+
+  # --- 2. BACKUP ROUTE: Modbus RTU ---
+  - name: "aqm_rtu"
+    type: serial
+    method: rtu
+    port: "COM8"
+    baudrate: 115200
+    stopbits: 1
+    bytesize: 8
+    parity: N
+    timeout: 1
+    sensors:
+      # --- HOLDING REGISTERS ---
+      - name: aqm_rtu_control_word
+        unique_id: aqm.rtu_control_word
+        address: 0
+        precision: 0
+        <<: *aqm_defaults
+        input_type: holding 
+
+      # --- INPUT REGISTERS: Status ---
+      - name: aqm_rtu_uptime
+        unique_id: aqm.rtu_uptime
+        address: 2
+        data_type: uint64
+        swap: word
+        <<: *aqm_defaults
+      - name: aqm_rtu_v3v3_val
+        unique_id: aqm.rtu_v3v3_val
+        address: 6
+        scale: 0.001
+        precision: 3
+        <<: *aqm_defaults
+      - name: aqm_rtu_v5v_val
+        unique_id: aqm.rtu_v5v_val
+        address: 7
+        scale: 0.001
+        precision: 3
+        <<: *aqm_defaults
+
+      # --- INPUT REGISTERS: SEN55 ---
+      - name: aqm_rtu_pm1_0
+        unique_id: aqm.rtu_sen55_pm1
+        address: 8
+        scale: 0.1
+        precision: 1
+        <<: *aqm_defaults
+      - name: aqm_rtu_pm2_5
+        unique_id: aqm.rtu_sen55_pm2_5
+        address: 9
+        scale: 0.1
+        precision: 1
+        <<: *aqm_defaults
+      - name: aqm_rtu_pm4_0
+        unique_id: aqm.rtu_sen55_pm4
+        address: 10
+        scale: 0.1
+        precision: 1
+        <<: *aqm_defaults
+      - name: aqm_rtu_pm10_0
+        unique_id: aqm.rtu_sen55_pm10
+        address: 11
+        scale: 0.1
+        precision: 1
+        <<: *aqm_defaults
+      - name: aqm_rtu_humidity
+        unique_id: aqm.rtu_sen55_humidity
+        address: 12
+        scale: 0.01
+        precision: 1
+        data_type: int16
+        <<: *aqm_defaults
+      - name: aqm_rtu_temperature
+        unique_id: aqm.rtu_sen55_temp
+        address: 13
+        scale: 0.005
+        precision: 1
+        data_type: int16
+        <<: *aqm_defaults
+      - name: aqm_rtu_voc_index
+        unique_id: aqm.rtu_sen55_voc_index
+        address: 14
+        scale: 0.1
+        precision: 1
+        data_type: int16
+        <<: *aqm_defaults
+      - name: aqm_rtu_nox_index
+        unique_id: aqm.rtu_sen55_nox_index
+        address: 15
+        scale: 0.1
+        precision: 1
+        data_type: int16
+        <<: *aqm_defaults
+
+      # --- INPUT REGISTERS: Gases ---
+      - name: aqm_rtu_so2_ppm
+        unique_id: aqm.rtu_so2_ppm
+        address: 16
+        scale: 0.1
+        precision: 2
+        <<: *aqm_defaults
+      - name: aqm_rtu_h2s_ppm
+        unique_id: aqm.rtu_h2s_ppm
+        address: 17
+        scale: 0.1
+        precision: 2
+        <<: *aqm_defaults
+      - name: aqm_rtu_mics_ox
+        unique_id: aqm.rtu_mics_ox
+        address: 18
+        scale: 0.01
+        precision: 2
+        <<: *aqm_defaults
+      - name: aqm_rtu_mics_red
+        unique_id: aqm.rtu_mics_red
+        address: 19
+        scale: 0.01
+        precision: 2
+        <<: *aqm_defaults
+      - name: aqm_rtu_mics_nh3
+        unique_id: aqm.rtu_mics_nh3
+        address: 20
+        scale: 0.01
+        precision: 2
+        <<: *aqm_defaults
+        
+      # DUMMY SENSOR - Bridging the gap at address 21
+      - name: aqm_rtu_dummy_21
+        unique_id: aqm.rtu_dummy_21
+        address: 21
+        <<: *aqm_defaults
+
+      - name: aqm_rtu_mics_ox_r
+        unique_id: aqm.rtu_mics_ox_r
+        address: 22
+        data_type: uint32
+        swap: word
+        <<: *aqm_defaults
+      - name: aqm_rtu_mics_red_r
+        unique_id: aqm.rtu_mics_red_r
+        address: 24
+        data_type: uint32
+        swap: word
+        <<: *aqm_defaults
+      - name: aqm_rtu_mics_nh3_r
+        unique_id: aqm.rtu_mics_nh3_r
+        address: 26
+        data_type: uint32
+        swap: word
+        <<: *aqm_defaults
+
+      # --- INPUT REGISTERS: ADC Raw ---
+      - name: aqm_rtu_so2_raw
+        unique_id: aqm.rtu_so2_raw
+        address: 28
+        precision: 0
+        <<: *aqm_defaults
+      - name: aqm_rtu_v3v3_raw
+        unique_id: aqm.rtu_v3v3_raw
+        address: 29
+        precision: 0
+        <<: *aqm_defaults
+      - name: aqm_rtu_v5v_raw
+        unique_id: aqm.rtu_v5v_raw
+        address: 30
+        precision: 0
+        <<: *aqm_defaults
+      - name: aqm_rtu_h2s_raw
+        unique_id: aqm.rtu_h2s_raw
+        address: 31
+        precision: 0
+        <<: *aqm_defaults
+      - name: aqm_rtu_mics_red_raw
+        unique_id: aqm.rtu_mics_red_raw
+        address: 32
+        precision: 0
+        <<: *aqm_defaults
+      - name: aqm_rtu_mics_ox_raw
+        unique_id: aqm.rtu_mics_ox_raw
+        address: 33
+        precision: 0
+        <<: *aqm_defaults
+      - name: aqm_rtu_mics_nh3_raw
+        unique_id: aqm.rtu_mics_nh3_raw
+        address: 34
+        precision: 0
+        <<: *aqm_defaults

@@ -35,17 +35,6 @@
 #define SENSITIVITY_H2S_MV_PER_PPM 26.4f
 #define SENSITIVITY_SO2_MV_PER_PPM 120.0f
 
-
-#define MICS_OX_LOAD  390000
-#define MICS_NH3_LOAD 120000
-#define MICS_RED_LOAD 3900
-
-
-#define MICS_OX_BASE_R  3340000 
-#define MICS_NH3_BASE_R  650000
-#define MICS_RED_BASE_R  6800
-
-
 // Fallback Access Point settings
 #define AQM_AP_SSID          "AQM_Sensor_Setup"
 #define AQM_AP_PASS          "12345678" // Min. 8 characters

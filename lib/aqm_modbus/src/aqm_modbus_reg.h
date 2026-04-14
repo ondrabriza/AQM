@@ -34,9 +34,9 @@ typedef struct {
     uint16_t v3v3_raw_val; /**< Reg 2: 3.3V Raw ADC count */
     uint16_t v5v_raw_val;  /**< Reg 3: 5V Raw ADC count */
     uint16_t h2s_raw_val;  /**< Reg 4: H2S Raw ADC count */
-    uint16_t co_raw_val;   /**< Reg 5: CO Raw ADC count */
-    uint16_t nh3_raw_val;  /**< Reg 6: NH3 Raw ADC count */
-    uint16_t no2_raw_val;  /**< Reg 7: NO2 Raw ADC count */
+    uint16_t mics_red_raw_val;   /**< Reg 5: CO Raw ADC count */
+    uint16_t mics_nh3_raw_val;  /**< Reg 6: NH3 Raw ADC count */
+    uint16_t mics_ox_raw_val;  /**< Reg 7: NO2 Raw ADC count */
 
     // --- Calculated Gas PPM (Scale: 100 -> 2 decimal place) ---
     // Example: Master reads 125 -> 1.25 ppm
@@ -44,14 +44,14 @@ typedef struct {
     uint16_t h2s_ppm;      /**< Reg 9: H2S concentration (PPM * 100) */
 
     // Scale 1000 -> 3 decimal places. Example: Master reads 2560 -> 2.560V
-    uint16_t co_mv;       /**< Reg 10: CO  mV */
-    uint16_t nh3_mv;      /**< Reg 11: NH3 mV  */
-    uint16_t no2_mv;      /**< Reg 12: NO2 mV  */
+    uint16_t mics_ox_r;       /**< Reg 10: CO  mV */
+    uint16_t mics_nh3_r;      /**< Reg 11: NH3 mV  */
+    uint16_t mics_red_r;      /**< Reg 12: NO2 mV  */
 
     // --- Voltage Rails (Scale: 1000 -> 3 decimal places) ---
     // Example: Master reads 3315 -> 3.315 V
-    uint16_t v3v3_val;     /**< Reg 13: 3.3V Rail Voltage (V * 1000 = mV) */
-    uint16_t v5v_val;      /**< Reg 14: 5.0V Rail Voltage (V * 1000 = mV) */
+    uint16_t v3v3_mv;     /**< Reg 13: 3.3V Rail Voltage (V * 1000 = mV) */
+    uint16_t v5v_mv;      /**< Reg 14: 5.0V Rail Voltage (V * 1000 = mV) */
 
     // --- SEN55 Climate Data (Scale: 200, 100) ---
     uint16_t temperature;  /**< Reg 15: Temperature (C * 200)*/

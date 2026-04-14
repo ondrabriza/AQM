@@ -50,19 +50,19 @@ void app_main(void) {
 
     //aqm_modbus_sync_from_nvs();
 
-    ESP_LOGI(TAG, "Boot Control Word: 0x%04X", aqm_data.control_word.word);
+    ESP_LOGI(TAG, "Boot Control Word: 0x%04X", aqm_data.config.control_word.word);
 
     // 4. Start Modbus RTU (Independent of network status)
     
     if(aqm_init_modbus_rtu() == ESP_OK) {
-        aqm_data.status.status_word.flags.mb_rtu_en = 1;
+        aqm_data.data.status.status_word.flags.mb_rtu_en = 1;
     } else {
         ESP_LOGE(TAG, "Failed to start Modbus RTU.");
         
     }
 
     // 5. Start Network (Wi-Fi)
-    if (aqm_data.control_word.flags.wifi_en) {
+    if (aqm_data.config.control_word.flags.wifi_en) {
         ESP_LOGI(TAG, "Wi-Fi is ENABLED in CW. Connecting...");
         
         // This runs asynchronously in the background
@@ -76,23 +76,23 @@ void app_main(void) {
 
         if ((bits & WIFI_CONNECTED_BIT) | (bits & WIFI_AP_BIT)) {
             ESP_LOGI(TAG, "Wi-Fi setup complete. Proceeding with application.");
-            aqm_data.status.status_word.flags.wifi_en = 1;
+            aqm_data.data.status.status_word.flags.wifi_en = 1;
 
 
         
         }
 
         // 6. Start Modbus TCP (Only if network is up and enabled in CW)
-        if (aqm_data.control_word.flags.mb_tcp_en && aqm_data.status.status_word.flags.wifi_en) {
+        if (aqm_data.config.control_word.flags.mb_tcp_en && aqm_data.data.status.status_word.flags.wifi_en) {
             ESP_LOGI(TAG, "Modbus TCP is ENABLED in CW. Starting...");
             err = aqm_init_modbus_tcp(); // Uncomment once TCP init is fully implemented
             if (err == ESP_OK)
             {
-                aqm_data.status.status_word.flags.mb_tcp_en = 1;
+                aqm_data.data.status.status_word.flags.mb_tcp_en = 1;
             }
         
         // Must be after ModBus TCP, otherwise does not work
-        if (aqm_data.status.status_word.flags.wifi_en){
+        if (aqm_data.data.status.status_word.flags.wifi_en){
             // Start HTTP server for provisioning
             start_web_server();
             start_mdns_service(); // aqm.local
@@ -102,7 +102,7 @@ void app_main(void) {
 
         } else {
             ESP_LOGI(TAG, "Modbus TCP is DISABLED.");
-            aqm_data.control_word.flags.mb_tcp_en = 0;
+            aqm_data.config.control_word.flags.mb_tcp_en = 0;
         }
 
     } else {

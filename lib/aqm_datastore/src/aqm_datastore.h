@@ -12,22 +12,28 @@ typedef struct {
     uint16_t v5v_raw_val; 
     uint16_t h2s_raw_val; 
     
-    uint16_t co_raw_val;  
-    uint16_t nh3_raw_val; 
-    uint16_t no2_raw_val; 
-} aqm_adc_raw_t;
+    uint16_t mics_red_raw_val;  
+    uint16_t mics_ox_raw_val; 
+    uint16_t mics_nh3_raw_val; 
+    uint16_t reserved; // Padding to align to 16-bit boundary
+} __attribute__((packed)) aqm_adc_raw_t;
 
 /**
  * @brief Calculated gas concentrations
  */
 typedef struct {
-    float so2_ppm;
-    float h2s_ppm;
+    uint16_t so2_ppm;
+    uint16_t h2s_ppm;
 
-    float co_mv;
-    float nh3_mv;
-    float no2_mv;
-} aqm_gas_data_t;
+    uint16_t mics_ox;
+    uint16_t mics_red;
+    uint16_t mics_nh3;
+    uint16_t reserved; // Padding to align to 16-bit boundary
+
+    uint32_t mics_ox_r;
+    uint32_t mics_red_r;
+    uint32_t mics_nh3_r;
+} __attribute__((packed)) aqm_gas_data_t;
 
 /**
  * @brief Data from SEN55 Environmental Sensor
@@ -41,7 +47,7 @@ typedef struct {
     int16_t temperature;
     int16_t voc_index;
     int16_t nox_index;
-} aqm_sen55_data_t;
+} __attribute__((packed)) aqm_sen55_data_t;
 
 typedef struct {
     uint16_t measure_en    : 1; // Bit  0: Measuring enabled
@@ -77,22 +83,42 @@ typedef struct {
  */
 typedef struct {
     aqm_control_word_t status_word; // Bit 0=WiFi, Bit 1=Relay, Bit 2=LED
-    uint32_t timestamp;
-    uint16_t v3v3_val;        /**< Voltage on 3V3 rail in mV */
-    uint16_t v5v_val;         /**< Voltage on 5V rail in mV */
+    uint16_t reserved; // Padding to align to 16-bit boundary
+    uint64_t timestamp;
+    uint16_t v3v3_mv;        /**< Voltage on 3V3 rail in mV */
+    uint16_t v5v_mv;         /**< Voltage on 5V rail in mV */
 
-} aqm_system_status_t;
+} __attribute__((packed)) aqm_system_status_t;
+
+typedef struct {
+
+} aqm_mics_ppm_t;
+
+typedef struct {
+    aqm_control_word_t control_word; // Control bits for device behavior
+    uint16_t reserved; // Padding to align to 16-bit boundary
+} __attribute__((packed)) aqm_holding_reg_t;
+
+typedef struct {
+    aqm_system_status_t status; 
+    aqm_sen55_data_t sen55;     
+    aqm_gas_data_t gases;       
+    aqm_adc_raw_t adc_raw;    
+} __attribute__((packed)) aqm_input_reg_t;
 
 /**
  * @brief Main Data Storage Structure
  */
 typedef struct {
-    aqm_adc_raw_t adc_raw;      
-    aqm_gas_data_t gases;       
-    aqm_sen55_data_t sen55;     
-    aqm_system_status_t status; 
+    aqm_holding_reg_t config; // For Modbus Holding Register (Control Word)
+    aqm_input_reg_t data;   // For Modbus Input Registers (Status, Gas Data, etc.)
     aqm_wifi_config_t wifi_config;
-    aqm_control_word_t control_word; // Control bits for device behavior
+
+    //aqm_adc_raw_t adc_raw;      
+    //aqm_gas_data_t gases;       
+    //aqm_sen55_data_t sen55;     
+    //aqm_system_status_t status; 
+    //aqm_control_word_t control_word; // Control bits for device behavior
 } aqm_data_t;
 
 extern aqm_data_t aqm_data;

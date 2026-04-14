@@ -1,5 +1,5 @@
 #include "aqm_modbus.h"
-#include "aqm_modbus_reg.h"
+//#include "aqm_modbus_reg.h"
 #include "aqm_datastore.h"
 #include "aqm_config.h"
 
@@ -16,13 +16,75 @@ static const char *TAG = "AQM_MODBUS";
 #define MB_RTU_BAUD_RATE 115200
 
 // Global instances of Modbus registers mapped to memory
-holding_reg_params_t holding_reg_params = {0};
-input_reg_params_t input_reg_params = {0};
+/*holding_reg_params_t holding_reg_params = {0};
+input_reg_params_t input_reg_params = {0};*/
 
 // Handle for the Modbus stack
 static void* tcp_slave_handle = NULL;
 static void* rtu_slave_handle = NULL; // Separate handle for RTU if needed
-static uint16_t s_last_control_word = 0;
+//static uint16_t s_last_control_word = 0;
+
+
+static uint16_t next_holding_offset = 0;
+static uint16_t next_input_offset = 0;
+
+/**
+ * @brief Helper function to register a block of registers with the Modbus stack
+ */
+static esp_err_t aqm_register_modbus_block(void* slave_handle, mb_param_type_t type, void* address, size_t size_bytes) {
+
+    mb_register_area_descriptor_t area = {
+        .type = type,
+        .address = address,
+        .size = size_bytes
+    };
+
+    uint16_t registers_count = size_bytes / 2; 
+
+    if (type == MB_PARAM_HOLDING) {
+        area.start_offset = next_holding_offset;
+        next_holding_offset += registers_count;
+    } 
+    else if (type == MB_PARAM_INPUT) {
+        area.start_offset = next_input_offset;
+        next_input_offset += registers_count; 
+    } 
+    else {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    esp_err_t err = mbc_slave_set_descriptor(slave_handle, area);
+    if (err != ESP_OK) {
+        ESP_LOGE("MODBUS", "Failed to register block at offset %d", area.start_offset);
+    }
+    return err;
+}
+
+/**
+ * @brief Sets up the descriptors for the Modbus slave
+ * 
+ * @param slave_handle 
+ * @return esp_err_t 
+ */
+static esp_err_t aqm_modbus_setup_descriptors(void* slave_handle){
+
+    esp_err_t err = ESP_OK;
+    next_holding_offset = 0;
+    next_input_offset = 0;
+
+    /* 1. Map HOLDING REGISTERS (Read/Write for Master) */
+    err = aqm_register_modbus_block(slave_handle, MB_PARAM_HOLDING, &aqm_data.config, sizeof(aqm_data.config));
+    if (err != ESP_OK) return err;
+
+    /* 2. Map INPUT REGISTERS (Read Only for Master) */
+    err= aqm_register_modbus_block(slave_handle, MB_PARAM_INPUT, &aqm_data.data, sizeof(aqm_data.data));
+    if (err != ESP_OK) return err;
+
+
+    return err;
+}
+
+
 
 /**
  * @brief Initializes Modbus TCP Slave and maps memory areas
@@ -60,31 +122,8 @@ esp_err_t aqm_init_modbus_tcp(void) {
         return err;
     }
 
-    /* 1. Map HOLDING REGISTERS (Read/Write) */
-    mb_register_area_descriptor_t hold_area = {
-        .type = MB_PARAM_HOLDING,
-        .start_offset = 0,
-        .address = (void*)&holding_reg_params,
-        .size = sizeof(holding_reg_params)
-    };
-    err = mbc_slave_set_descriptor(tcp_slave_handle, hold_area);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "mbc_slave_set_descriptor (holding) failed: 0x%x", err);
-        return err;
-    }
+    ESP_ERROR_CHECK(aqm_modbus_setup_descriptors(tcp_slave_handle));
 
-    /* 2. Map INPUT REGISTERS (Read Only for Master) */
-    mb_register_area_descriptor_t input_area = {
-        .type = MB_PARAM_INPUT,
-        .start_offset = 0,
-        .address = (void*)&input_reg_params,
-        .size = sizeof(input_reg_params)
-    };
-    err = mbc_slave_set_descriptor(tcp_slave_handle, input_area);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "mbc_slave_set_descriptor (input) failed: 0x%x", err);
-        return err;
-    }
 
     /* 3. Start Modbus stack */
     err = mbc_slave_start(tcp_slave_handle);
@@ -135,31 +174,7 @@ esp_err_t aqm_init_modbus_rtu(void) {
         return err;
     }
 
-    /* 1. Map HOLDING REGISTERS (Read/Write) */
-    mb_register_area_descriptor_t hold_area = {
-        .type = MB_PARAM_HOLDING,
-        .start_offset = 0,
-        .address = (void*)&holding_reg_params,
-        .size = sizeof(holding_reg_params)
-    };
-    err = mbc_slave_set_descriptor(rtu_slave_handle, hold_area);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "mbc_slave_set_descriptor (holding) failed: 0x%x", err);
-        return err;
-    }
-
-    /* 2. Map INPUT REGISTERS (Read Only for Master) */
-    mb_register_area_descriptor_t input_area = {
-        .type = MB_PARAM_INPUT,
-        .start_offset = 0,
-        .address = (void*)&input_reg_params,
-        .size = sizeof(input_reg_params)
-    };
-    err = mbc_slave_set_descriptor(rtu_slave_handle, input_area);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "mbc_slave_set_descriptor (input) failed: 0x%x", err);
-        return err;
-    }
+    ESP_ERROR_CHECK(aqm_modbus_setup_descriptors(rtu_slave_handle));
 
     /* 3. Start Modbus stack */
     err = mbc_slave_start(rtu_slave_handle);
@@ -178,25 +193,26 @@ esp_err_t aqm_init_modbus_rtu(void) {
  * Synchronize holding registers with datastore and vice versa
  * Applies necessary scaling factors for integer transmission.
  */
+/*
 void aqm_modbus_update_registers(void) {
     // ==========================================
     // 1. UPDATE INPUT REGISTERS (Read Only)
     // ==========================================
     
     // State bits for status word (Bit 0=WiFi, Bit 1=Relay, Bit 2=LED)
-    input_reg_params.status_word = aqm_data.status.status_word.word;
-    /*if(aqm_data.status.status_word.flags.measure_en) {
-        input_reg_params.status_word |= MASK_MEASURE_EN;
-    }
-    if (aqm_data.status.status_word.flags.wifi_en) {
-        input_reg_params.status_word |= MASK_WIFI_EN;
-    }
-    if (aqm_data.status.status_word.flags.relay_state) {
-        input_reg_params.status_word |= MASK_RELAY_STATE;
-    }
-    if (aqm_data.status.status_word.flags.led_state) {
-        input_reg_params.status_word |= MASK_LED_STATE; 
-    }*/
+    //input_reg_params.status_word = aqm_data.status.status_word.word;
+    //if(aqm_data.status.status_word.flags.measure_en) {
+    //    input_reg_params.status_word |= MASK_MEASURE_EN;
+    //}
+    //if (aqm_data.status.status_word.flags.wifi_en) {
+    //    input_reg_params.status_word |= MASK_WIFI_EN;
+    //}
+    //if (aqm_data.status.status_word.flags.relay_state) {
+    //    input_reg_params.status_word |= MASK_RELAY_STATE;
+    //}
+    //if (aqm_data.status.status_word.flags.led_state) {
+    //    input_reg_params.status_word |= MASK_LED_STATE; 
+    //}
     
 
     // Copy ADC values
@@ -204,20 +220,20 @@ void aqm_modbus_update_registers(void) {
     input_reg_params.v3v3_raw_val = aqm_data.adc_raw.v3v3_raw_val;
     input_reg_params.v5v_raw_val  = aqm_data.adc_raw.v5v_raw_val;
     input_reg_params.h2s_raw_val  = aqm_data.adc_raw.h2s_raw_val;
-    input_reg_params.co_raw_val   = aqm_data.adc_raw.co_raw_val;
-    input_reg_params.nh3_raw_val  = aqm_data.adc_raw.nh3_raw_val;
-    input_reg_params.no2_raw_val  = aqm_data.adc_raw.no2_raw_val;
+    input_reg_params.mics_red_raw_val   = aqm_data.adc_raw.mics_red_raw_val;
+    input_reg_params.mics_nh3_raw_val  = aqm_data.adc_raw.mics_nh3_raw_val;
+    input_reg_params.mics_ox_raw_val  = aqm_data.adc_raw.mics_ox_raw_val;
         
     // Scale gas sensor values (PPM * 100)
     input_reg_params.so2_ppm = (uint16_t)(aqm_data.gases.so2_ppm * 100.0f);
     input_reg_params.h2s_ppm = (uint16_t)(aqm_data.gases.h2s_ppm * 100.0f);
-    input_reg_params.co_mv   = (uint16_t)(aqm_data.gases.co_mv);
-    input_reg_params.nh3_mv  = (uint16_t)(aqm_data.gases.nh3_mv);
-    input_reg_params.no2_mv  = (uint16_t)(aqm_data.gases.no2_mv);
+    input_reg_params.mics_ox_r   = (uint16_t)(aqm_data.gases.mics_ox_r);
+    input_reg_params.mics_nh3_r  = (uint16_t)(aqm_data.gases.mics_nh3_r);
+    input_reg_params.mics_red_r  = (uint16_t)(aqm_data.gases.mics_red_r);
 
     // Scale voltage values (mV)
-    input_reg_params.v3v3_val = aqm_data.status.v3v3_val;
-    input_reg_params.v5v_val  = aqm_data.status.v5v_val;
+    input_reg_params.v3v3_mv = aqm_data.status.v3v3_mv;
+    input_reg_params.v5v_mv  = aqm_data.status.v5v_mv;
 
     // Climate data (Temperature in C * 200, Humidity in % * 100)
     input_reg_params.temperature = (uint16_t)(aqm_data.sen55.temperature);
@@ -267,5 +283,5 @@ void aqm_modbus_update_registers(void) {
         aqm_datastore_set_flag_cw_changed();
 
     }
-}
+}*/
 
