@@ -366,6 +366,29 @@ static void factory_reset_task(void *pvParameters) {
     }
 }
 
+/**
+ * @brief Task that wakes up every 12 hours to commit data to NVS.
+ */
+static void aqm_periodic_nvs_save_task(void *pvParameters) {
+
+    ESP_LOGI(TAG, "Periodic NVS Save Task Started (12h interval)");
+    const TickType_t save_interval = pdMS_TO_TICKS(12 * 60 * 60 * 1000);
+
+    while(1) {
+        
+        ESP_LOGI(TAG, "12 hours passed. Executing routine NVS save...");
+
+        aqm_mics_config_save_nvs();
+        aqm_control_word_save_nvs();
+        aqm_wifi_config_save_nvs();
+        
+        ESP_LOGW(TAG, "Zbývající nevyužitá paměť tasku: %d bajtů", uxTaskGetStackHighWaterMark(NULL));
+
+        vTaskDelay(save_interval);
+    }
+}
+
+
 // -----------------------------------------------------------------------------
 // TASK INITIALIZATION
 // -----------------------------------------------------------------------------
@@ -380,6 +403,9 @@ void aqm_tasks_start(void) {
 
        // Create the factory reset task.
     xTaskCreate(factory_reset_task, "factory_reset_task", 2048, NULL, 5, &factory_reset_task_handle);
+
+    xTaskCreate(aqm_periodic_nvs_save_task, "nvs_save_task", 2560, NULL, 4, NULL);
+
     
     // Create the sensor task.
     // Stack size: 4096 bytes (due to I2C and sensor reading), Priority: 6 (Higher than output task)
