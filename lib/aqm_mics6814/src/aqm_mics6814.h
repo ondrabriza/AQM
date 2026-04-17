@@ -8,4 +8,6 @@ void calculate_mics_r(uint16_t mics_adc_raw, ads1115_pga_t pga, uint16_t voltage
 
 void aqm_calculate_data_from_mics(void);
 
+void aqm_update_mics_r0_baselines(void);
+
 #endif // AQM_MICS6814_H
