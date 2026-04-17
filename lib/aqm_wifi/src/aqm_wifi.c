@@ -198,6 +198,14 @@ static esp_err_t wifi_config_get_handler(httpd_req_t *req) {
         "    document.getElementById('chk_wifi').checked = d.wifi;"
         "  }).catch(e => console.error(e));"
         "}"
+        "function doFactoryReset() {"
+        "  if(confirm('Are you sure you want to completely erase all settings and restore factory defaults? The device will restart.')) {"
+        "    fetch('/api/reset', { method: 'POST' }).then(() => {"
+        "      alert('Device is resetting. Please reconnect to the default Wi-Fi after 10 seconds.');"
+        "      window.location.reload();"
+        "    });"
+        "  }"
+        "}"
         "setInterval(updateData, 2000);"
         "window.onload = updateData;"
         "</script>"
@@ -235,6 +243,10 @@ static esp_err_t wifi_config_get_handler(httpd_req_t *req) {
         "<label>Password:</label><br><input type='password' name='password'><br>"
         "<input type='submit' value='Save Wi-Fi & Restart'>"
         "</form></div>"
+
+        "<div style='margin-top:40px; text-align:center;'>"
+        "<button onclick='doFactoryReset()' style='background:#dc3545; color:white; border:none; padding:10px 15px; border-radius:4px; cursor:pointer;'>Factory Reset</button>"
+        "</div>"
         
         "</body></html>",
         
@@ -295,6 +307,28 @@ static esp_err_t wifi_save_post_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+
+/**
+ * @brief Factory reset
+ */
+static esp_err_t api_factory_reset_post_handler(httpd_req_t *req) {
+    ESP_LOGW(TAG, "Factory reset requested via Web Dashboard!");
+
+    // Odeslání odpovědi klientovi dříve, než se systém restartuje
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, "{\"status\":\"ok\",\"msg\":\"Resetting...\"}", HTTPD_RESP_USE_STRLEN);
+
+    // Zavoláme tvou funkci pro naplnění paměti NVS defaultními hodnotami
+    aqm_datastore_fill_nvs_with_defaults();
+
+    ESP_LOGW(TAG, "Factory reset applied. Restarting device in 1 second...");
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    esp_restart();
+
+    return ESP_OK;
+}
+
+
 /**
  * @brief Starts the web server and registers paths
  */
@@ -315,6 +349,11 @@ void start_web_server(void) {
         // Zaregistrovani API pro async prepinani slideru bez restartu
         httpd_uri_t api_ctrl_uri = { .uri = "/api/control", .method = HTTP_POST, .handler = api_control_post_handler };
         httpd_register_uri_handler(server, &api_ctrl_uri);
+
+        // Zaregistrovani API pro Factory Reset
+        httpd_uri_t api_reset_uri = { .uri = "/api/reset", .method = HTTP_POST, .handler = api_factory_reset_post_handler };
+        httpd_register_uri_handler(server, &api_reset_uri);
+
 
         // Zaregistrovani formulare pro ulozeni zmenene site (restart)
         httpd_uri_t post_uri = { .uri = "/save", .method = HTTP_POST, .handler = wifi_save_post_handler };
