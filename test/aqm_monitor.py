@@ -12,15 +12,15 @@ from influxdb_client.client.write_api import SYNCHRONOUS
 
 # ================= SETTINGS =================
 YAML_FILE = 'config.yaml'
-CSV_FILE = 'aqm_data_db.csv'
+CSV_DIR = 'csv_data'        # Složka pro ukládání CSV souborů
 MEASUREMENT_INTERVAL = 1  # in seconds
 MODBUS_MODE = "RTU"         # Options: "TCP" or "RTU"
 
 # ================= INFLUXDB SETTINGS =================
-INFLUX_URL = "http://aqm-rpi.local:8086" # Nebo 127.0.0.1 pokud skript běží přímo na RPi
+INFLUX_URL = "http://aqm-rpi.local:8086" 
 INFLUX_TOKEN = "MgHdTrItUtbh8Dasbln-uATVlDVuymvMrr_hJZ_09cbPrhg3CaHNcv3vI-SJ2pB7CxqtTJouKs6g4G51v0rPHg=="
 INFLUX_ORG = "AQM"
-INFLUX_BUCKET = "aqm_data" # Ujisti se, že se bucket v databázi jmenuje přesně takto
+INFLUX_BUCKET = "aqm_data" 
 # ============================================
 
 def load_configuration(target_name):
@@ -28,21 +28,16 @@ def load_configuration(target_name):
     with open(YAML_FILE, 'r', encoding='utf-8') as file:
         config = yaml.safe_load(file)
     
-    # Find configuration for the selected target (aqm_tcp or aqm_rtu)
     aqm_device = next((mb for mb in config.get('modbus', []) if mb.get('name') == target_name), None)
     if not aqm_device:
         raise ValueError(f"Modbus device with name '{target_name}' not found in the YAML file.")
     
-    # Filter sensors (ignore dummy registers and holding registers)
     sensors = []
     for s in aqm_device.get('sensors', []):
-        # Keep only input data (address >= 2) and ignore the dummy sensor
         if s.get('address', 0) >= 2 and 'dummy' not in s.get('name', '').lower():
             sensors.append(s)
             
-    # Sort sensors by address to ensure correct processing order
     sensors.sort(key=lambda x: x['address'])
-    
     return aqm_device, sensors
 
 def process_value(regs, sensor_address, base_address, data_type, scale, swap, precision):
@@ -73,6 +68,11 @@ def process_value(regs, sensor_address, base_address, data_type, scale, swap, pr
         return int(result)
     else:
         return round(result, precision)
+
+def get_csv_filename(date_obj):
+    """Generates a CSV filename based on the provided date."""
+    date_str = date_obj.strftime('%Y_%m_%d')
+    return os.path.join(CSV_DIR, f"aqm_data_{date_str}.csv")
 
 def main():
     target_name = 'aqm_tcp' if MODBUS_MODE.upper() == 'TCP' else 'aqm_rtu'
@@ -126,102 +126,124 @@ def main():
     print("Connecting Modbus...", flush=True)
     modbus_client.connect()
 
+    # --- INICIALIZACE CSV SLOŽKY A SOUBORU ---
+    os.makedirs(CSV_DIR, exist_ok=True)
     csv_header = ['Timestamp'] + [s['name'].replace(f"{target_name}_", '') for s in sensors]
-    file_exists = os.path.isfile(CSV_FILE)
+    
+    current_date = datetime.now().date()
+    current_csv_file = get_csv_filename(current_date)
+    
+    # Otevření prvního souboru ručně, abychom s ním mohli hýbat ve smyčce
+    file = open(current_csv_file, mode='a', newline='', encoding='utf-8')
+    writer = csv.writer(file, delimiter=';')
+    
+    # Zápis hlavičky, pokud je soubor nový
+    if os.path.getsize(current_csv_file) == 0:
+        writer.writerow(csv_header)
+        print(f"Created new CSV file: {current_csv_file}", flush=True)
+    else:
+        print(f"Appending to existing CSV file: {current_csv_file}", flush=True)
 
-    with open(CSV_FILE, mode='a', newline='', encoding='utf-8') as file:
-        writer = csv.writer(file, delimiter=';')
-        
-        if not file_exists:
-            writer.writerow(csv_header)
-            print(f"Created new CSV file: {CSV_FILE}", flush=True)
-        else:
-            print(f"Appending to existing CSV file: {CSV_FILE}", flush=True)
+    print("Starting data acquisition (Press Ctrl+C to stop)...", flush=True)
 
-        print("Starting data acquisition (Press Ctrl+C to stop)...", flush=True)
-
-        try:
-            while True:
-                start_time = time.time()
-                timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
-                csv_row = [timestamp]
-                data_valid = False # Pomocná vlajka pro InfluxDB
+    try:
+        while True:
+            start_time = time.time()
+            now = datetime.now()
+            
+            # --- PŮLNOČNÍ ROTACE CSV SOUBORŮ ---
+            if now.date() != current_date:
+                print(f"[{now.strftime('%Y-%m-%d %H:%M:%S')}] Midnight reached. Rotating CSV file.", flush=True)
+                file.close() # Zavřeme starý soubor
                 
-                try:
-                    # 1. Proaktivní kontrola TCP spojení
-                    if MODBUS_MODE.upper() == 'TCP' and not modbus_client.is_socket_open():
-                        modbus_client.connect()
+                current_date = now.date()
+                current_csv_file = get_csv_filename(current_date)
+                
+                # Otevřeme nový soubor
+                file = open(current_csv_file, mode='a', newline='', encoding='utf-8')
+                writer = csv.writer(file, delimiter=';')
+                
+                if os.path.getsize(current_csv_file) == 0:
+                    writer.writerow(csv_header)
+                    print(f"Created new CSV file for today: {current_csv_file}", flush=True)
 
-                    # 2. Samotné čtení dat
-                    try:
-                        # 1. Pokus pro nový pymodbus 3.x (Linux/RPi)
-                        result = modbus_client.read_input_registers(address=min_address, count=register_count, slave=slave_id)
-                    except TypeError:
-                        # 2. Záložní pokus pro starý pymodbus 2.x (Windows)
-                        # Ve starších verzích se pro adresu používal parametr 'unit' (případně bez pojmenování)
-                        result = modbus_client.read_input_registers(address=min_address, count=register_count, device_id=slave_id)
+            timestamp = now.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+            csv_row = [timestamp]
+            data_valid = False 
+            
+            try:
+                # 1. Proaktivní kontrola TCP spojení
+                if MODBUS_MODE.upper() == 'TCP' and not modbus_client.is_socket_open():
+                    modbus_client.connect()
+
+                # 2. Samotné čtení dat
+                try:
+                    result = modbus_client.read_input_registers(address=min_address, count=register_count, slave=slave_id)
+                except TypeError:
+                    result = modbus_client.read_input_registers(address=min_address, count=register_count, device_id=slave_id)
+                
+                if not result.isError():
+                    regs = result.registers
+                    data_valid = True 
                     
-                    if not result.isError():
-                        regs = result.registers
-                        data_valid = True # Data jsou v pořádku, povolíme zápis do InfluxDB
+                    for s in sensors:
+                        value = process_value(
+                            regs=regs,
+                            sensor_address=s['address'],
+                            base_address=min_address,
+                            data_type=s.get('data_type', 'uint16'),
+                            scale=s.get('scale', 1.0),
+                            swap=s.get('swap', 'none'),
+                            precision=s.get('precision', 0)
+                        )
+                        csv_row.append(value)
+                    
+                    try:
+                        print(f"[{timestamp}] OK -> {csv_header[1]}: {csv_row[1]} | {csv_header[9]}: {csv_row[9]}", flush=True)
+                    except IndexError:
+                        print(f"[{timestamp}] OK -> Data uložena.", flush=True)
                         
-                        for s in sensors:
-                            value = process_value(
-                                regs=regs,
-                                sensor_address=s['address'],
-                                base_address=min_address,
-                                data_type=s.get('data_type', 'uint16'),
-                                scale=s.get('scale', 1.0),
-                                swap=s.get('swap', 'none'),
-                                precision=s.get('precision', 0)
-                            )
-                            csv_row.append(value)
-                        
-                        try:
-                            print(f"[{timestamp}] OK -> {csv_header[1]}: {csv_row[1]} | {csv_header[9]}: {csv_row[9]}", flush=True)
-                        except IndexError:
-                            print(f"[{timestamp}] OK -> Data uložena.", flush=True)
-                            
-                    else:
-                        print(f"[{timestamp}] Chyba PDU nebo adresy. Zapisuji NaN.", flush=True)
-                        for _ in sensors:
-                            csv_row.append("NaN")
-                            
-                except (ModbusException, ConnectionException, Exception) as e:
-                    print(f"[{timestamp}] Výpadek spojení ({e}). Zapisuji NaN a obnovuji socket...", flush=True)
-                    modbus_client.close() 
+                else:
+                    print(f"[{timestamp}] Chyba PDU nebo adresy. Zapisuji NaN.", flush=True)
                     for _ in sensors:
                         csv_row.append("NaN")
+                        
+            except (ModbusException, ConnectionException, Exception) as e:
+                print(f"[{timestamp}] Výpadek spojení ({e}). Zapisuji NaN a obnovuji socket...", flush=True)
+                modbus_client.close() 
+                for _ in sensors:
+                    csv_row.append("NaN")
 
-                # 3. Zápis do CSV (proběhne VŽDY)
-                writer.writerow(csv_row)
-                file.flush() 
+            # 3. Zápis do CSV (proběhne VŽDY)
+            writer.writerow(csv_row)
+            file.flush() 
 
-                # 4. Zápis do INFLUXDB (proběhne JEN když jsou platná data)
-                if data_valid:
-                    # Založíme datový bod (tzv. measurement)
-                    point = influxdb_client.Point("aqm_environment")
-                    
-                    # Projdeme senzory a naplníme bod reálnými daty
-                    for i, s in enumerate(sensors):
-                        field_name = s['name'].replace(f"{target_name}_", '')
-                        value = csv_row[i + 1] # +1 protože na indexu 0 je timestamp
-                        point.field(field_name, float(value))
-                    
-                    try:
-                        write_api.write(bucket=INFLUX_BUCKET, org=INFLUX_ORG, record=point)
-                    except Exception as e:
-                        print(f"[{timestamp}] Chyba při zápisu do InfluxDB: {e}", flush=True)
+            # 4. Zápis do INFLUXDB (proběhne JEN když jsou platná data)
+            if data_valid:
+                point = influxdb_client.Point("aqm_environment")
+                
+                for i, s in enumerate(sensors):
+                    field_name = s['name'].replace(f"{target_name}_", '')
+                    value = csv_row[i + 1] 
+                    point.field(field_name, float(value))
+                
+                try:
+                    write_api.write(bucket=INFLUX_BUCKET, org=INFLUX_ORG, record=point)
+                except Exception as e:
+                    print(f"[{timestamp}] Chyba při zápisu do InfluxDB: {e}", flush=True)
 
-                # 5. Časování smyčky
-                elapsed = time.time() - start_time
-                time.sleep(max(0, MEASUREMENT_INTERVAL - elapsed))
+            # 5. Časování smyčky
+            elapsed = time.time() - start_time
+            time.sleep(max(0, MEASUREMENT_INTERVAL - elapsed))
 
-        except KeyboardInterrupt:
-            print("\nAcquisition stopped by user.", flush=True)
-        finally:
-            modbus_client.close()
-            influx_client.close() # Zavření Influx spojení
+    except KeyboardInterrupt:
+        print("\nAcquisition stopped by user.", flush=True)
+    finally:
+        # Uzavření spojení a souborů při ukončení (Ctrl+C)
+        if file and not file.closed:
+            file.close()
+        modbus_client.close()
+        influx_client.close() 
 
 if __name__ == "__main__":
     main()
