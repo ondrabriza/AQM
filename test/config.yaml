@@ -9,19 +9,70 @@ modbus:
     port: 502
     timeout: 1
     sensors:
-      # --- HOLDING REGISTERS ---
+      # ==========================================
+      # --- HOLDING REGISTERS (Read/Write) ---
+      # ==========================================
       - name: aqm_tcp_control_word
         unique_id: aqm.tcp_control_word
         address: 0
         precision: 0
         <<: &aqm_defaults
           slave: 1
-          input_type: input
           scan_interval: 10
           state_class: measurement
         input_type: holding 
 
-      # --- INPUT REGISTERS: Status ---
+      - name: aqm_tcp_mics_ox_r0
+        unique_id: aqm.tcp_mics_ox_r0
+        address: 2
+        data_type: uint32
+        swap: word
+        <<: *aqm_defaults
+        input_type: holding
+
+      - name: aqm_tcp_mics_red_r0
+        unique_id: aqm.tcp_mics_red_r0
+        address: 4
+        data_type: uint32
+        swap: word
+        <<: *aqm_defaults
+        input_type: holding
+
+      - name: aqm_tcp_mics_nh3_r0
+        unique_id: aqm.tcp_mics_nh3_r0
+        address: 6
+        data_type: uint32
+        swap: word
+        <<: *aqm_defaults
+        input_type: holding
+
+      - name: aqm_tcp_mics_ox_threshold
+        unique_id: aqm.tcp_mics_ox_threshold
+        address: 8
+        scale: 0.01
+        precision: 2
+        <<: *aqm_defaults
+        input_type: holding
+
+      - name: aqm_tcp_mics_red_threshold
+        unique_id: aqm.tcp_mics_red_threshold
+        address: 9
+        scale: 0.01
+        precision: 2
+        <<: *aqm_defaults
+        input_type: holding
+
+      - name: aqm_tcp_mics_nh3_threshold
+        unique_id: aqm.tcp_mics_nh3_threshold
+        address: 10
+        scale: 0.01
+        precision: 2
+        <<: *aqm_defaults
+        input_type: holding
+
+      # ==========================================
+      # --- INPUT REGISTERS: Status (Read Only) ---
+      # ==========================================
       - name: aqm_tcp_uptime
         unique_id: aqm.tcp_uptime
         address: 2
@@ -201,7 +252,9 @@ modbus:
     parity: N
     timeout: 1
     sensors:
-      # --- HOLDING REGISTERS ---
+      # ==========================================
+      # --- HOLDING REGISTERS (Read/Write) ---
+      # ==========================================
       - name: aqm_rtu_control_word
         unique_id: aqm.rtu_control_word
         address: 0
@@ -209,7 +262,62 @@ modbus:
         <<: *aqm_defaults
         input_type: holding 
 
-      # --- INPUT REGISTERS: Status ---
+      - name: aqm_rtu_dummy_holding_1
+        unique_id: aqm.rtu_dummy_holding_1
+        address: 1
+        <<: *aqm_defaults
+
+      - name: aqm_rtu_mics_ox_r0
+        unique_id: aqm.rtu_mics_ox_r0
+        address: 2
+        data_type: uint32
+        swap: word
+        <<: *aqm_defaults
+        input_type: holding
+
+      - name: aqm_rtu_mics_red_r0
+        unique_id: aqm.rtu_mics_red_r0
+        address: 4
+        data_type: uint32
+        swap: word
+        <<: *aqm_defaults
+        input_type: holding
+
+      - name: aqm_rtu_mics_nh3_r0
+        unique_id: aqm.rtu_mics_nh3_r0
+        address: 6
+        data_type: uint32
+        swap: word
+        <<: *aqm_defaults
+        input_type: holding
+
+      - name: aqm_rtu_mics_ox_threshold
+        unique_id: aqm.rtu_mics_ox_threshold
+        address: 8
+        scale: 0.01
+        precision: 2
+        <<: *aqm_defaults
+        input_type: holding
+
+      - name: aqm_rtu_mics_red_threshold
+        unique_id: aqm.rtu_mics_red_threshold
+        address: 9
+        scale: 0.01
+        precision: 2
+        <<: *aqm_defaults
+        input_type: holding
+
+      - name: aqm_rtu_mics_nh3_threshold
+        unique_id: aqm.rtu_mics_nh3_threshold
+        address: 10
+        scale: 0.01
+        precision: 2
+        <<: *aqm_defaults
+        input_type: holding
+
+      # ==========================================
+      # --- INPUT REGISTERS: Status (Read Only) ---
+      # ==========================================
       - name: aqm_rtu_uptime
         unique_id: aqm.rtu_uptime
         address: 2

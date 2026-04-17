@@ -43,10 +43,10 @@ typedef struct {
 } __attribute__((packed)) aqm_mics_r0_t;
 
 typedef struct {
-    uint8_t ox_threshold; // Threshold for 
-    uint8_t red_threshold;
-    uint8_t nh3_threshold;
-    uint8_t reserved; // Padding to align to 32-bit boundary
+    uint16_t ox_threshold; // Threshold for 
+    uint16_t red_threshold;
+    uint16_t nh3_threshold;
+    uint16_t reserved; // Padding to align to 32-bit boundary
 } __attribute__((packed)) aqm_mics_thresholds_t;
 
 /**
