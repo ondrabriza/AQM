@@ -40,10 +40,16 @@
 #define MICS_NH3_LOAD 120000
 #define MICS_RED_LOAD 3900
 
+#define MICS_WARMUP_TIME_MS 60000 // 60 secs
 
-#define MICS_OX_BASE_R  3340000 
-#define MICS_NH3_BASE_R  650000
-#define MICS_RED_BASE_R  6800
+#define MICS_OX_BASE_R  5500000 
+#define MICS_NH3_BASE_R  800000
+#define MICS_RED_BASE_R  7000
+
+#define MICS_OX_THRESHOLD 90 // 0,9 ratio
+#define MICS_NH3_THRESHOLD 90 // 0,9 ratio
+#define MICS_RED_THRESHOLD 110 // 1,1 ratio
+
 
 
 // Fallback Access Point settings
