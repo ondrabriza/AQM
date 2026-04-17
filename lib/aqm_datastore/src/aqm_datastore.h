@@ -33,7 +33,14 @@ typedef struct {
     uint32_t mics_ox_r;
     uint32_t mics_red_r;
     uint32_t mics_nh3_r;
+
 } __attribute__((packed)) aqm_gas_data_t;
+
+typedef struct {
+    uint32_t mics_ox_r0;
+    uint32_t mics_red_r0;
+    uint32_t mics_nh3_r0;
+} __attribute__((packed)) aqm_mics_r0_t;
 
 /**
  * @brief Data from SEN55 Environmental Sensor
@@ -97,6 +104,7 @@ typedef struct {
 typedef struct {
     aqm_control_word_t control_word; // Control bits for device behavior
     uint16_t reserved; // Padding to align to 16-bit boundary
+    aqm_mics_r0_t mics_r0; // Baseline resistances for MICS sensors
 } __attribute__((packed)) aqm_holding_reg_t;
 
 typedef struct {
@@ -110,7 +118,7 @@ typedef struct {
  * @brief Main Data Storage Structure
  */
 typedef struct {
-    aqm_holding_reg_t config; // For Modbus Holding Register (Control Word)
+    aqm_holding_reg_t config; // For Modbus Holding Registers (e.g. Control Word)
     aqm_input_reg_t data;   // For Modbus Input Registers (Status, Gas Data, etc.)
     aqm_wifi_config_t wifi_config;
 
