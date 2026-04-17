@@ -278,8 +278,9 @@ static esp_err_t wifi_save_post_handler(httpd_req_t *req) {
 
     ESP_LOGI(TAG, "Wi-Fi Settings Updated. SSID: %s", aqm_data.wifi_config.wifi_ssid);
 
-    // 2. Ulozeni konfigurace do NVS (vcetne site a control_word)
+    
     aqm_wifi_config_save_nvs();
+    aqm_control_word_save_nvs();
 
     // 3. Odeslani odpovedi
     const char* resp = "<html><body style='font-family:sans-serif; text-align:center; padding:50px;'>"
