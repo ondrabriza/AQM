@@ -47,28 +47,6 @@ void aqm_wifi_config_save_nvs(void) {
     nvs_close(my_handle);
 }
 
-void aqm_wifi_config_load_nvs(void) {
-    nvs_handle_t my_handle;
-    esp_err_t err;
-
-    // Open NVS in read-only mode
-    err = nvs_open("storage", NVS_READONLY, &my_handle);
-    if (err != ESP_OK) {
-        ESP_LOGW(TAG, "NVS memory is empty or not initialized (normal on first boot).");
-        return;
-    }
-
-    size_t required_size = sizeof(aqm_wifi_config_t);
-    err = nvs_get_blob(my_handle, "wifi_cfg", &aqm_data.wifi_config, &required_size);
-    
-    if (err == ESP_OK) {
-        ESP_LOGI(TAG, "Loaded saved Wi-Fi. SSID: %s", aqm_data.wifi_config.wifi_ssid);
-    } else {
-        ESP_LOGW(TAG, "No Wi-Fi configuration found in NVS.");
-    }
-
-    nvs_close(my_handle);
-}
 
 void aqm_control_word_save_nvs(void) {
     nvs_handle_t my_handle;
@@ -98,24 +76,64 @@ void aqm_control_word_save_nvs(void) {
     nvs_close(my_handle);
 }
 
+void aqm_wifi_config_load_nvs(void) {
+    nvs_handle_t my_handle;
+    esp_err_t err;
+
+    // 1. Set default values FIRST (empty credentials)
+    memset(&aqm_data.wifi_config, 0, sizeof(aqm_wifi_config_t));
+
+    // 2. Open NVS in read-only mode
+    err = nvs_open("storage", NVS_READONLY, &my_handle);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "NVS empty. Using default Wi-Fi config (empty).");
+        return;
+    }
+
+    // 3. Try to load saved data
+    size_t required_size = sizeof(aqm_wifi_config_t);
+    err = nvs_get_blob(my_handle, "wifi_cfg", &aqm_data.wifi_config, &required_size);
+    
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "Loaded saved Wi-Fi. SSID: %s", aqm_data.wifi_config.wifi_ssid);
+    } else {
+        ESP_LOGW(TAG, "No Wi-Fi configuration found in NVS. Kept defaults.");
+    }
+
+    nvs_close(my_handle);
+}
+
 void aqm_control_word_load_nvs(void) {
     nvs_handle_t my_handle;
     esp_err_t err;
 
-    // Open NVS in read-only mode
+    // 1. Set default values FIRST (e.g., all communication features enabled)
+    aqm_data.config.control_word.word = 0; // Clear all bits first
+    aqm_data.config.control_word.flags.measure_en = 1;
+    aqm_data.config.control_word.flags.wifi_en = 1;
+    aqm_data.config.control_word.flags.relay_state = 0; // Relay OFF
+    aqm_data.config.control_word.flags.led_state = 0;   // LED OFF
+    aqm_data.config.control_word.flags.web_server_en = 1;
+    aqm_data.config.control_word.flags.mb_tcp_en = 1;
+    aqm_data.config.control_word.flags.mb_rtu_en = 1;
+
+    // 2. Open NVS in read-only mode
     err = nvs_open("storage", NVS_READONLY, &my_handle);
     if (err != ESP_OK) {
-        ESP_LOGW(TAG, "NVS memory is empty or not initialized (normal on first boot).");
+        ESP_LOGW(TAG, "NVS empty. Using default Control Word.");
         return;
     }
 
-    // Load the control word as a 16-bit value
-    err = nvs_get_u16(my_handle, "ctrl_word", &aqm_data.config.control_word.word);
+    // 3. Load the control word as a 16-bit value
+    uint16_t loaded_word = 0;
+    err = nvs_get_u16(my_handle, "ctrl_word", &loaded_word);
     
     if (err == ESP_OK) {
+        // Overwrite defaults only if successfully loaded
+        aqm_data.config.control_word.word = loaded_word;
         ESP_LOGI(TAG, "Loaded saved control word from NVS.");
     } else {
-        ESP_LOGW(TAG, "No control word found in NVS.");
+        ESP_LOGW(TAG, "No control word found in NVS. Kept defaults.");
     }
 
     nvs_close(my_handle);
@@ -210,6 +228,14 @@ void aqm_datastore_fill_nvs_with_defaults(void){
 
     aqm_data.wifi_config.wifi_ssid[0] = '\0'; // Empty SSID
     aqm_data.wifi_config.wifi_pass[0] = '\0'; // Empty
+
+    aqm_data.config.mics_r0.ox_r0  = MICS_OX_BASE_R;
+    aqm_data.config.mics_r0.nh3_r0 = MICS_NH3_BASE_R;
+    aqm_data.config.mics_r0.red_r0 = MICS_RED_BASE_R;
+    aqm_data.config.mics_thresholds.ox_threshold  = MICS_OX_THRESHOLD;
+    aqm_data.config.mics_thresholds.nh3_threshold = MICS_NH3_THRESHOLD;
+    aqm_data.config.mics_thresholds.red_threshold = MICS_RED_THRESHOLD;
+
     
 
     // Save these defaults to NVS

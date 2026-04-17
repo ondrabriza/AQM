@@ -120,6 +120,7 @@ static void aqm_output_task(void *pvParameters) {
                 
                 // Give Modbus TCP/RTU time to send the ACK response back to the Master 
                 // before pulling the plug on the system.
+                aqm_control_word_save_nvs();
                 vTaskDelay(pdMS_TO_TICKS(3000)); 
                 esp_restart();
             }
@@ -303,6 +304,12 @@ static void aqm_print_measured_values(void) {
     ESP_LOGI(TAG, "Gases: SO2: %.1f ppm, H2S: %.1f ppm, MICS_RED: %.2f Idx, MICS_NH3: %.2f Idx, MICS_OX: %.2f Idx", 
             aqm_data.data.gases.so2_ppm/10.0f, aqm_data.data.gases.h2s_ppm/10.0f, aqm_data.data.gases.mics_red/100.0f, aqm_data.data.gases.mics_nh3/100.0f, aqm_data.data.gases.mics_ox/100.0f);
 
+    ESP_LOGI(TAG, "MICS R0: RED: %lu, NH3: %lu, OX: %lu", 
+            aqm_data.config.mics_r0.red_r0, aqm_data.config.mics_r0.nh3_r0, aqm_data.config.mics_r0.ox_r0);
+
+    ESP_LOGI(TAG, " MICS Thresholds: RED: %.2f, NH3: %.2f, OX: %.2f", 
+            aqm_data.config.mics_thresholds.red_threshold/100.0f, aqm_data.config.mics_thresholds.nh3_threshold/100.0f, aqm_data.config.mics_thresholds.ox_threshold/100.0f);
+
     ESP_LOGI(TAG, "Status: 3.3V: %u mV, 5.0V: %u mV", aqm_data.data.status.v3v3_mv, aqm_data.data.status.v5v_mv);
 
 }
@@ -382,7 +389,7 @@ static void aqm_periodic_nvs_save_task(void *pvParameters) {
         aqm_control_word_save_nvs();
         aqm_wifi_config_save_nvs();
         
-        ESP_LOGW(TAG, "Zbývající nevyužitá paměť tasku: %d bajtů", uxTaskGetStackHighWaterMark(NULL));
+        //ESP_LOGW(TAG, "Zbývající nevyužitá paměť tasku: %d bajtů", uxTaskGetStackHighWaterMark(NULL));
 
         vTaskDelay(save_interval);
     }
