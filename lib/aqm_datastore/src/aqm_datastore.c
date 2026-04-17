@@ -1,4 +1,5 @@
 #include "aqm_datastore.h"
+#include "aqm_config.h"
 #include <string.h>
 #include <nvs_flash.h>
 #include <nvs.h>
@@ -14,6 +15,7 @@ void aqm_datastore_init(void) {
 
     // Try to load saved data from Flash memory
     aqm_wifi_config_load_nvs();
+    aqm_mics_config_load_nvs();
     aqm_control_word_load_nvs();
 }
 
@@ -118,6 +120,83 @@ void aqm_control_word_load_nvs(void) {
 
     nvs_close(my_handle);
 }
+
+void aqm_mics_config_save_nvs(void) {
+    nvs_handle_t my_handle;
+    esp_err_t err;
+
+    // 1. Open NVS in read/write mode
+    err = nvs_open("storage", NVS_READWRITE, &my_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Error opening NVS handle for saving MiCS config!");
+        return;
+    }
+
+    // 2. Save R0 (Baseline)
+    err = nvs_set_blob(my_handle, "mics_r0", &aqm_data.config.mics_r0, sizeof(aqm_mics_r0_t));
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "Saved MiCS R0 to NVS.");
+    } else {
+        ESP_LOGE(TAG, "Failed to save MiCS R0 to NVS.");
+    }
+
+    // 3. Save Thresholds (Relay limits)
+    err = nvs_set_blob(my_handle, "mics_thr", &aqm_data.config.mics_thresholds, sizeof(aqm_mics_thresholds_t));
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "Saved MiCS Thresholds to NVS.");
+    } else {
+        ESP_LOGE(TAG, "Failed to save MiCS Thresholds to NVS.");
+    }
+
+    // 4. Commit written data to flash (crucial step!)
+    err = nvs_commit(my_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "NVS Commit failed!");
+    } else {
+        ESP_LOGI(TAG, "MiCS Configuration successfully committed to NVS.");
+    }
+
+    // 5. Close handle
+    nvs_close(my_handle);
+}
+
+void aqm_mics_config_load_nvs(void) {
+    nvs_handle_t my_handle;
+    esp_err_t err;
+
+    aqm_data.config.mics_r0.ox_r0  = MICS_OX_BASE_R;
+    aqm_data.config.mics_r0.nh3_r0 = MICS_NH3_BASE_R;
+    aqm_data.config.mics_r0.red_r0 = MICS_RED_BASE_R;
+
+    aqm_data.config.mics_thresholds.ox_threshold  = MICS_OX_THRESHOLD;
+    aqm_data.config.mics_thresholds.nh3_threshold = MICS_NH3_THRESHOLD;
+    aqm_data.config.mics_thresholds.red_threshold = MICS_RED_THRESHOLD;
+
+    err = nvs_open("storage", NVS_READONLY, &my_handle);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "NVS empty. Using default MiCS R0 and Thresholds.");
+        return; 
+    }
+
+    size_t req_size = sizeof(aqm_mics_r0_t);
+    err = nvs_get_blob(my_handle, "mics_r0", &aqm_data.config.mics_r0, &req_size);
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "Loaded MiCS R0 from NVS.");
+    } else {
+        ESP_LOGW(TAG, "No MiCS R0 in NVS. Kept defaults.");
+    }
+
+    req_size = sizeof(aqm_mics_thresholds_t);
+    err = nvs_get_blob(my_handle, "mics_thr", &aqm_data.config.mics_thresholds, &req_size);
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "Loaded MiCS Thresholds from NVS.");
+    } else {
+        ESP_LOGW(TAG, "No MiCS Thresholds in NVS. Kept defaults.");
+    }
+
+    nvs_close(my_handle);
+}
+
 
 void aqm_datastore_fill_nvs_with_defaults(void){
     // Fill the control word with default values (e.g., all features enabled)

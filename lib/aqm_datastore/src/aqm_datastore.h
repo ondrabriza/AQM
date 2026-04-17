@@ -28,7 +28,7 @@ typedef struct {
     uint16_t mics_ox;
     uint16_t mics_red;
     uint16_t mics_nh3;
-    uint16_t reserved; // Padding to align to 16-bit boundary
+    uint16_t reserved; // Padding to align to 32-bit boundary
 
     uint32_t mics_ox_r;
     uint32_t mics_red_r;
@@ -37,10 +37,17 @@ typedef struct {
 } __attribute__((packed)) aqm_gas_data_t;
 
 typedef struct {
-    uint32_t mics_ox_r0;
-    uint32_t mics_red_r0;
-    uint32_t mics_nh3_r0;
+    uint32_t ox_r0;
+    uint32_t red_r0;
+    uint32_t nh3_r0;
 } __attribute__((packed)) aqm_mics_r0_t;
+
+typedef struct {
+    uint8_t ox_threshold; // Threshold for 
+    uint8_t red_threshold;
+    uint8_t nh3_threshold;
+    uint8_t reserved; // Padding to align to 32-bit boundary
+} __attribute__((packed)) aqm_mics_thresholds_t;
 
 /**
  * @brief Data from SEN55 Environmental Sensor
@@ -105,6 +112,7 @@ typedef struct {
     aqm_control_word_t control_word; // Control bits for device behavior
     uint16_t reserved; // Padding to align to 16-bit boundary
     aqm_mics_r0_t mics_r0; // Baseline resistances for MICS sensors
+    aqm_mics_thresholds_t mics_thresholds; // Thresholds for MICS sensors
 } __attribute__((packed)) aqm_holding_reg_t;
 
 typedef struct {
@@ -152,6 +160,12 @@ void aqm_control_word_save_nvs(void);
  * @brief Load control word from NVS.
  */
 void aqm_control_word_load_nvs(void);
+
+
+void aqm_mics_config_save_nvs(void);
+
+void aqm_mics_config_load_nvs(void);
+
 
 /**
  * @brief Fills the datastore with dummy/test data.
