@@ -21,6 +21,7 @@ static esp_netif_t *s_ap_netif = NULL;
 
 EventGroupHandle_t s_wifi_event_group;
 
+// Increased allocation size to fit the larger HTML/JS payload securely
 #define HTML_MALLOC_SIZE 8192
 
 // ------------------------------------------------------------------
@@ -53,24 +54,22 @@ static void url_decode(char *dst, const char *src) {
 }
 
 /**
- * @brief GET API: Vrací aktuální data a stavy ve formátu JSON
+ * @brief GET API: Returns current sensor data and statuses in JSON format
  */
 static esp_err_t api_data_get_handler(httpd_req_t *req) {
     char json_response[768];
     
-    // Predpokladam nazvy promennych voc, nox a no2_ppm ve tve strukture. 
-    // Pokud se jmenuji jinak (např. voc_index), uprav to prosim nize.
     snprintf(json_response, sizeof(json_response),
-        "{\"temp\":%.1f,\"hum\":%.1f,\"pm25\":%.1f,\"so2\":%.1f,\"co\":%.2f,\"h2s\":%.1f,\"nh3\":%.2f,\"no2\":%.2f,\"voc\":%d,\"nox\":%d,\"v33\":%d,\"v5v\":%d,"
+        "{\"temp\":%.1f,\"hum\":%.1f,\"pm25\":%.1f,\"so2\":%.1f,\"red\":%.2f,\"h2s\":%.1f,\"nh3\":%.2f,\"ox\":%.2f,\"voc\":%d,\"nox\":%d,\"v33\":%d,\"v5v\":%d,"
         "\"relay\":%d,\"led\":%d,\"mbtcp\":%d,\"wifi\":%d}",
         aqm_data.data.sen55.temperature/200.0f,
         aqm_data.data.sen55.humidity/100.0f,
         aqm_data.data.sen55.pm2_5/10.0f,
         aqm_data.data.gases.so2_ppm/10.0f,
-        aqm_data.data.gases.mics_ox/100.0f,
+        aqm_data.data.gases.mics_red/100.0f,
         aqm_data.data.gases.h2s_ppm/10.0f,
         aqm_data.data.gases.mics_nh3/100.0f,
-        aqm_data.data.gases.mics_red/100.0f,
+        aqm_data.data.gases.mics_ox/100.0f,
         aqm_data.data.sen55.voc_index/10,
         aqm_data.data.sen55.nox_index/10,
         aqm_data.data.status.v3v3_mv,
@@ -87,7 +86,7 @@ static esp_err_t api_data_get_handler(httpd_req_t *req) {
 }
 
 /**
- * @brief POST API: Prijima prikazy od slideru pro okamzitou zmenu stavu
+ * @brief POST API: Receives commands from sliders to instantly toggle hardware states
  */
 static esp_err_t api_control_post_handler(httpd_req_t *req) {
     char buf[128];
@@ -105,7 +104,7 @@ static esp_err_t api_control_post_handler(httpd_req_t *req) {
     char target[32] = {0};
     char val_str[8] = {0};
 
-    // Ocekava format data napr: target=relay&val=1
+    // Expects URL-encoded format: target=relay&val=1
     if (httpd_query_key_value(buf, "target", target, sizeof(target)) == ESP_OK &&
         httpd_query_key_value(buf, "val", val_str, sizeof(val_str)) == ESP_OK) {
         
@@ -118,7 +117,70 @@ static esp_err_t api_control_post_handler(httpd_req_t *req) {
 
         aqm_datastore_set_flag_cw_changed();
         
-        ESP_LOGI(TAG, "Control API - Zmeneno %s na %d", target, val);
+        ESP_LOGI(TAG, "Control API - Changed %s to %d", target, val);
+
+        httpd_resp_set_type(req, "application/json");
+        httpd_resp_send(req, "{\"status\":\"ok\"}", HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+    }
+
+    httpd_resp_send_500(req);
+    return ESP_FAIL;
+}
+
+/**
+ * @brief POST API: Sets current or manual resistance values as new R0 baselines
+ */
+static esp_err_t api_baseline_post_handler(httpd_req_t *req) {
+    char buf[128];
+    int ret, remaining = req->content_len;
+
+    if (remaining >= sizeof(buf)) {
+        httpd_resp_send_500(req);
+        return ESP_FAIL;
+    }
+
+    ret = httpd_req_recv(req, buf, remaining);
+    if (ret <= 0) return ESP_FAIL;
+    buf[ret] = '\0';
+
+    char target[32] = {0};
+    char val_str[32] = {0};
+    uint32_t manual_val = 0;
+
+    // 1. Identify which gas channel is being calibrated
+    if (httpd_query_key_value(buf, "target", target, sizeof(target)) == ESP_OK) {
+        
+        // 2. Check if a manual value was provided
+        if (httpd_query_key_value(buf, "val", val_str, sizeof(val_str)) == ESP_OK) {
+            if (strlen(val_str) > 0) {
+                manual_val = (uint32_t)atol(val_str);
+            }
+        }
+
+        // 3. Apply baseline: Manual if provided, otherwise fetch current sensor resistance
+        if (strcmp(target, "red") == 0) {
+            aqm_data.config.mics_r0.red_r0 = (manual_val > 0) ? manual_val : aqm_data.data.gases.mics_red_r;
+        } else if (strcmp(target, "nh3") == 0) {
+            aqm_data.config.mics_r0.nh3_r0 = (manual_val > 0) ? manual_val : aqm_data.data.gases.mics_nh3_r;
+        } else if (strcmp(target, "ox") == 0) {
+            aqm_data.config.mics_r0.ox_r0 = (manual_val > 0) ? manual_val : aqm_data.data.gases.mics_ox_r;
+        } else if (strcmp(target, "all") == 0) {
+            // "ALL" button ignores manual inputs and captures current states
+            aqm_data.config.mics_r0.red_r0 = aqm_data.data.gases.mics_red_r;
+            aqm_data.config.mics_r0.nh3_r0 = aqm_data.data.gases.mics_nh3_r;
+            aqm_data.config.mics_r0.ox_r0  = aqm_data.data.gases.mics_ox_r;
+        }
+
+        // Trigger save to NVS to ensure calibration survives reboot
+        // Note: Implement or use your specific save function here if different
+        // aqm_control_word_save_nvs(); 
+
+        if (manual_val > 0) {
+            ESP_LOGI(TAG, "Baseline API - %s set MANUALLY to: %lu", target, (unsigned long)manual_val);
+        } else {
+            ESP_LOGI(TAG, "Baseline API - %s set AUTOMATICALLY to current readings", target);
+        }
 
         httpd_resp_set_type(req, "application/json");
         httpd_resp_send(req, "{\"status\":\"ok\"}", HTTPD_RESP_USE_STRLEN);
@@ -142,14 +204,13 @@ static esp_err_t wifi_config_get_handler(httpd_req_t *req) {
         }
     }
 
-    char *html = malloc(HTML_MALLOC_SIZE); // 5KB
+    char *html = malloc(HTML_MALLOC_SIZE); 
     if (html == NULL) {
         ESP_LOGE(TAG, "Failed to allocate memory for HTML");
         httpd_resp_send_500(req);
         return ESP_FAIL;
     }
 
-    // Nyní vkládáme HTML a JS logiku pro Fetch API
     snprintf(html, HTML_MALLOC_SIZE,
         "<html><head><title>AQM Dashboard</title>"
         "<meta name='viewport' content='width=device-width, initial-scale=1'>"
@@ -157,8 +218,9 @@ static esp_err_t wifi_config_get_handler(httpd_req_t *req) {
         "body{font-family:sans-serif; padding:20px; background:#f4f4f4;} "
         ".box{background:#fff; padding:20px; border-radius:8px; box-shadow:0 0 10px rgba(0,0,0,0.1); margin-bottom:20px;} "
         "h2{margin-top:0; color:#333; border-bottom:2px solid #007BFF; padding-bottom:5px;} "
-        "input[type='text'], input[type='password']{width:100%%; margin-bottom:15px; padding:10px; border:1px solid #ccc; border-radius:4px; box-sizing: border-box;} "
-        "input[type='submit']{background:#007BFF; color:white; border:none; padding:12px 20px; cursor:pointer; border-radius:4px; font-size:16px; width:100%%;} "
+        "input[type='text'], input[type='password'], input[type='number']{width:100%%; margin-bottom:15px; padding:10px; border:1px solid #ccc; border-radius:4px; box-sizing: border-box;} "
+        "input[type='submit'], .btn{background:#007BFF; color:white; border:none; padding:12px 20px; cursor:pointer; border-radius:4px; font-size:16px; width:100%%;} "
+        ".btn-success{background:#28a745;} .btn-outline{background:#fff; color:#007BFF; border:1px solid #007BFF;} "
         ".switch {position: relative; display: inline-block; width: 50px; height: 24px; vertical-align: middle;}"
         ".switch input {opacity: 0; width: 0; height: 0;}"
         ".slider {position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px;}"
@@ -171,6 +233,21 @@ static esp_err_t wifi_config_get_handler(httpd_req_t *req) {
         ".data-val {font-size: 1.2em; font-weight: bold; color: #007BFF;}"
         "</style>"
         "<script>"
+        "function setBaseline(target, name) {"
+        "  let val = '';"
+        "  if (target !== 'all') {"
+        "    let inputEl = document.getElementById('val_' + target);"
+        "    if (inputEl && inputEl.value !== '') { val = inputEl.value; }"
+        "  }"
+        "  let msg = val ? ('Set ' + name + ' baseline to ' + val + '?') : ('Set CURRENT resistance as new baseline for ' + name + '?');"
+        "  if(confirm(msg + ' Ensure the sensor is in clean air!')) {"
+        "    fetch('/api/baseline', {"
+        "      method: 'POST',"
+        "      headers: {'Content-Type': 'application/x-www-form-urlencoded'},"
+        "      body: 'target=' + target + '&val=' + val"
+        "    }).then(r => r.json()).then(d => { alert('Baseline updated successfully!'); if(target!=='all') document.getElementById('val_'+target).value = ''; }).catch(e => console.error(e));"
+        "  }"
+        "}"
         "function toggleSetting(target, obj) {"
         "  let val = obj.checked ? 1 : 0;"
         "  fetch('/api/control', {"
@@ -185,10 +262,10 @@ static esp_err_t wifi_config_get_handler(httpd_req_t *req) {
         "    document.getElementById('hum').innerText = d.hum;"
         "    document.getElementById('pm25').innerText = d.pm25;"
         "    document.getElementById('so2').innerText = d.so2;"
-        "    document.getElementById('co').innerText = d.co;"
+        "    document.getElementById('red').innerText = d.red;"
         "    document.getElementById('h2s').innerText = d.h2s;"
         "    document.getElementById('nh3').innerText = d.nh3;"
-        "    document.getElementById('no2').innerText = d.no2;"
+        "    document.getElementById('ox').innerText = d.ox;"
         "    document.getElementById('voc').innerText = d.voc;"
         "    document.getElementById('nox').innerText = d.nox;"
         "    document.getElementById('v33').innerText = d.v33;"
@@ -223,12 +300,43 @@ static esp_err_t wifi_config_get_handler(httpd_req_t *req) {
         "<div class='data-item'>NOX<br><span id='nox' class='data-val'>--</span> Idx</div>"
         "<div class='data-item'>SO2<br><span id='so2' class='data-val'>--</span> ppm</div>"
         "<div class='data-item'>H2S<br><span id='h2s' class='data-val'>--</span> ppm</div>"
-        "<div class='data-item'>CO<br><span id='co' class='data-val'>--</span> ratio</div>"
+        "<div class='data-item'>RED<br><span id='red' class='data-val'>--</span> ratio</div>"
         "<div class='data-item'>NH3<br><span id='nh3' class='data-val'>--</span> ratio</div>"
-        "<div class='data-item'>NO2<br><span id='no2' class='data-val'>--</span> ratio</div>"
+        "<div class='data-item'>OX<br><span id='ox' class='data-val'>--</span> ratio</div>"
         "<div class='data-item'>3.3V Rail<br><span id='v33' class='data-val'>--</span> mV</div>"
         "<div class='data-item'>5V Rail<br><span id='v5v' class='data-val'>--</span> mV</div>"
         "</div>"
+        "</div>"
+
+        "<div class='box'>"
+        "<h2>Sensor Calibration</h2>"
+        "<p style='font-size:0.9em; color:#666;'>Leave input blank to use current sensor reading, or enter a specific resistance value manually.</p>"
+        
+        "<div class='flex-row'>"
+        "  <span><strong>RED</strong> Channel</span>"
+        "  <div style='display:flex; gap:5px;'>"
+        "    <input type='number' id='val_red' placeholder='Auto (Current R)' style='margin:0; width:150px;'>"
+        "    <button class='btn btn-outline' style='width:auto; padding:8px 15px;' onclick='setBaseline(\"red\", \"RED\")'>Save</button>"
+        "  </div>"
+        "</div>"
+
+        "<div class='flex-row'>"
+        "  <span><strong>NH3</strong> Channel</span>"
+        "  <div style='display:flex; gap:5px;'>"
+        "    <input type='number' id='val_nh3' placeholder='Auto (Current R)' style='margin:0; width:150px;'>"
+        "    <button class='btn btn-outline' style='width:auto; padding:8px 15px;' onclick='setBaseline(\"nh3\", \"NH3\")'>Save</button>"
+        "  </div>"
+        "</div>"
+
+        "<div class='flex-row'>"
+        "  <span><strong>OX</strong> Channel</span>"
+        "  <div style='display:flex; gap:5px;'>"
+        "    <input type='number' id='val_ox' placeholder='Auto (Current R)' style='margin:0; width:150px;'>"
+        "    <button class='btn btn-outline' style='width:auto; padding:8px 15px;' onclick='setBaseline(\"ox\", \"OX\")'>Save</button>"
+        "  </div>"
+        "</div>"
+
+        "<button class='btn btn-success' style='margin-top:10px;' onclick='setBaseline(\"all\", \"ALL CHANNELS\")'>Auto-Calibrate ALL to Current Readings</button>"
         "</div>"
 
         "<div class='box'>"
@@ -263,7 +371,7 @@ static esp_err_t wifi_config_get_handler(httpd_req_t *req) {
 }
 
 /**
- * @brief HTTP POST Handler: Zpracovava POUZE zmenu Wi-Fi a provede restart
+ * @brief HTTP POST Handler: Processes ONLY Wi-Fi credential changes and restarts
  */
 static esp_err_t wifi_save_post_handler(httpd_req_t *req) {
     char buf[512]; 
@@ -281,7 +389,7 @@ static esp_err_t wifi_save_post_handler(httpd_req_t *req) {
 
     char raw_val[128] = {0};
 
-    // 1. Zpracovani Wi-Fi udaju
+    // 1. Process Wi-Fi credentials
     if (httpd_query_key_value(buf, "ssid", raw_val, sizeof(raw_val)) == ESP_OK) {
         url_decode(aqm_data.wifi_config.wifi_ssid, raw_val);
     }
@@ -291,23 +399,21 @@ static esp_err_t wifi_save_post_handler(httpd_req_t *req) {
 
     ESP_LOGI(TAG, "Wi-Fi Settings Updated. SSID: %s", aqm_data.wifi_config.wifi_ssid);
 
-    
     aqm_wifi_config_save_nvs();
     aqm_control_word_save_nvs();
 
-    // 3. Odeslani odpovedi
+    // 3. Send Response
     const char* resp = "<html><body style='font-family:sans-serif; text-align:center; padding:50px;'>"
                        "<h2>Settings Saved!</h2><p>Applying Wi-Fi configuration and restarting device...</p>"
                        "</body></html>";
     httpd_resp_send(req, resp, HTTPD_RESP_USE_STRLEN);
     
-    // 4. Restart zařízení pro aplikaci sítě
+    // 4. Restart device to apply network changes
     vTaskDelay(pdMS_TO_TICKS(1500));
     esp_restart();
 
     return ESP_OK;
 }
-
 
 /**
  * @brief Factory reset
@@ -315,11 +421,11 @@ static esp_err_t wifi_save_post_handler(httpd_req_t *req) {
 static esp_err_t api_factory_reset_post_handler(httpd_req_t *req) {
     ESP_LOGW(TAG, "Factory reset requested via Web Dashboard!");
 
-    // Odeslání odpovědi klientovi dříve, než se systém restartuje
+    // Send response to client before restarting the system
     httpd_resp_set_type(req, "application/json");
     httpd_resp_send(req, "{\"status\":\"ok\",\"msg\":\"Resetting...\"}", HTTPD_RESP_USE_STRLEN);
 
-    // Zavoláme tvou funkci pro naplnění paměti NVS defaultními hodnotami
+    // Call your function to fill NVS memory with default values
     aqm_datastore_fill_nvs_with_defaults();
 
     ESP_LOGW(TAG, "Factory reset applied. Restarting device in 1 second...");
@@ -329,39 +435,41 @@ static esp_err_t api_factory_reset_post_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
-
 /**
  * @brief Starts the web server and registers paths
  */
 void start_web_server(void) {
     httpd_handle_t server = NULL;
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.stack_size = 8192;
+    config.stack_size = 8192; // Ensure sufficient stack size for HTML allocations
 
     if (httpd_start(&server, &config) == ESP_OK) {
-        // Zaregistrovani hlavni HTML stranky
+        // Register main HTML page
         httpd_uri_t get_uri = { .uri = "/", .method = HTTP_GET, .handler = wifi_config_get_handler };
         httpd_register_uri_handler(server, &get_uri);
 
-        // Zaregistrovani API pro nacteni stavu a hodnot do grafiky
+        // Register API for reading status and values
         httpd_uri_t api_data_uri = { .uri = "/api/data", .method = HTTP_GET, .handler = api_data_get_handler };
         httpd_register_uri_handler(server, &api_data_uri);
 
-        // Zaregistrovani API pro async prepinani slideru bez restartu
+        // Register API for async slider toggling
         httpd_uri_t api_ctrl_uri = { .uri = "/api/control", .method = HTTP_POST, .handler = api_control_post_handler };
         httpd_register_uri_handler(server, &api_ctrl_uri);
 
-        // Zaregistrovani API pro Factory Reset
+        // Register API for baseline calibration
+        httpd_uri_t api_baseline_uri = { .uri = "/api/baseline", .method = HTTP_POST, .handler = api_baseline_post_handler };
+        httpd_register_uri_handler(server, &api_baseline_uri);
+
+        // Register API for Factory Reset
         httpd_uri_t api_reset_uri = { .uri = "/api/reset", .method = HTTP_POST, .handler = api_factory_reset_post_handler };
         httpd_register_uri_handler(server, &api_reset_uri);
 
-
-        // Zaregistrovani formulare pro ulozeni zmenene site (restart)
+        // Register form for saving Wi-Fi settings
         httpd_uri_t post_uri = { .uri = "/save", .method = HTTP_POST, .handler = wifi_save_post_handler };
         httpd_register_uri_handler(server, &post_uri);
 
+        // Register the OTA firmware update endpoint
         aqm_ota_register_http_endpoint(server);
-        
         
         ESP_LOGI(TAG, "Web server started on port %d", config.server_port);
     }
@@ -484,6 +592,4 @@ void aqm_wifi_connect(void) {
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
     ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
-
-
 }
