@@ -39,10 +39,13 @@ void app_main(void) {
     }
     ESP_ERROR_CHECK(ret);
 
-    // 3. Initialize datastore (THIS LOADS THE CONTROL WORD FROM NVS)
+    // 3. Initialize datastore
     aqm_datastore_init();
     
     // Copy the boot state of the Control Word into the Modbus holding registers
+        // Try to load saved data from Flash memory
+    aqm_wifi_config_load_nvs();
+    aqm_mics_config_load_nvs();
     aqm_control_word_load_nvs();
 
     //aqm_data.control_word.word = 0xFFFF;

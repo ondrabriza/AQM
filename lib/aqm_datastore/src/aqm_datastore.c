@@ -12,11 +12,6 @@ aqm_data_t aqm_data;
 void aqm_datastore_init(void) {
     // Zero out the entire structure
     memset(&aqm_data, 0, sizeof(aqm_data_t));
-
-    // Try to load saved data from Flash memory
-    aqm_wifi_config_load_nvs();
-    aqm_mics_config_load_nvs();
-    aqm_control_word_load_nvs();
 }
 
 void aqm_wifi_config_save_nvs(void) {
@@ -241,6 +236,7 @@ void aqm_datastore_fill_nvs_with_defaults(void){
     // Save these defaults to NVS
     aqm_control_word_save_nvs();
     aqm_wifi_config_save_nvs();
+    aqm_mics_config_save_nvs();
 }
 
 
