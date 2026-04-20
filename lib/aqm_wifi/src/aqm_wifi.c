@@ -1,6 +1,7 @@
 #include "aqm_wifi.h"
 #include "aqm_config.h"
 #include "aqm_datastore.h"
+#include "aqm_ota.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -358,6 +359,9 @@ void start_web_server(void) {
         // Zaregistrovani formulare pro ulozeni zmenene site (restart)
         httpd_uri_t post_uri = { .uri = "/save", .method = HTTP_POST, .handler = wifi_save_post_handler };
         httpd_register_uri_handler(server, &post_uri);
+
+        aqm_ota_register_http_endpoint(server);
+        
         
         ESP_LOGI(TAG, "Web server started on port %d", config.server_port);
     }
