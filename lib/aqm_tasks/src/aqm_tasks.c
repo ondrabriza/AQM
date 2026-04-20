@@ -409,7 +409,7 @@ void aqm_tasks_start(void) {
     xTaskCreate(aqm_output_task, "output_task", 2048, NULL, 5, NULL);
 
        // Create the factory reset task.
-    xTaskCreate(factory_reset_task, "factory_reset_task", 2048, NULL, 5, &factory_reset_task_handle);
+    xTaskCreate(factory_reset_task, "factory_reset_task", 2048, NULL, 7, &factory_reset_task_handle);
 
     xTaskCreate(aqm_periodic_nvs_save_task, "nvs_save_task", 2560, NULL, 4, NULL);
 
