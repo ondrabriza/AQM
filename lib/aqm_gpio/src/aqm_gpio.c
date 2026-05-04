@@ -97,7 +97,7 @@ static esp_err_t aqm_adcs_rdy_pins_init(void){
 
 static esp_err_t boot_button_init(void){
     gpio_config_t io_conf = {
-        .intr_type = GPIO_INTR_ANYEDGE,     // Změna na ANYEDGE pro měření délky stisku
+        .intr_type = GPIO_INTR_ANYEDGE,     // Changed to ANYEDGE for measuring press duration
         .pin_bit_mask = (1ULL << BOOT_BUTTON_PIN), 
         .mode = GPIO_MODE_INPUT,            
         .pull_up_en = 0,                    
@@ -116,10 +116,10 @@ static void IRAM_ATTR boot_button_isr_handler(void* arg) {
     static bool is_pressed = false;
     
     uint64_t current_time = esp_timer_get_time();
-    int pin_level = gpio_get_level(BOOT_BUTTON_PIN); // 0 = stisknuto, 1 = uvolněno
+    int pin_level = gpio_get_level(BOOT_BUTTON_PIN); // 0 = pressed, 1 = released
 
     if (pin_level == 0) { 
-        // Hrana dolů (Tlačítko bylo stisknuto)
+        // Edge down (Button was pressed)
         if (!is_pressed && (current_time - press_start_time > DEBOUNCE_TIME_US)) {
             press_start_time = current_time;
             is_pressed = true;
@@ -127,7 +127,7 @@ static void IRAM_ATTR boot_button_isr_handler(void* arg) {
 
         }
     } else {
-        // Hrana nahoru (Tlačítko bylo uvolněno)
+        // Edge up (Button was released)
         if (is_pressed) {
             is_pressed = false;
             uint64_t press_duration = current_time - press_start_time;

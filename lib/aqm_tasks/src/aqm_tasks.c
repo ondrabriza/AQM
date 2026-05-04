@@ -357,10 +357,10 @@ static void aqm_sensor_task(void *pvParameters) {
 }
 
 
-// --- Task pro bezpečné provedení továrního resetu mimo ISR ---
+// Task for safe factory reset execution outside ISR
 static void factory_reset_task(void *pvParameters) {
     while (1) {
-        // Task spí a čeká, dokud nedostane signál z ISR
+        // Task sleeps and waits until it receives a signal from ISR
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
         ESP_LOGW(TAG, "Long press detected. Performing factory reset...");
@@ -389,7 +389,7 @@ static void aqm_periodic_nvs_save_task(void *pvParameters) {
         aqm_control_word_save_nvs();
         aqm_wifi_config_save_nvs();
         
-        //ESP_LOGW(TAG, "Zbývající nevyužitá paměť tasku: %d bajtů", uxTaskGetStackHighWaterMark(NULL));
+        //ESP_LOGW(TAG, "Remaining unused task memory: %d bytes", uxTaskGetStackHighWaterMark(NULL));
 
         vTaskDelay(save_interval);
     }

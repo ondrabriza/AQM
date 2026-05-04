@@ -100,19 +100,19 @@ esp_err_t aqm_init_modbus_tcp(void) {
     comm_info.tcp_opts.ip_addr_table = NULL; 
     comm_info.tcp_opts.uid = 1;              
 
-    /* -----------------------------------------------------------------
-     * OPRAVA: Dynamické vyhledání aktivního síťového rozhraní pro mDNS
-     * ----------------------------------------------------------------- */
+    /*
+    Dynamic search for active network interface for mDNS
+     */
     esp_netif_t *active_netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
     esp_netif_ip_info_t ip_info;
     
-    // Zkontrolujeme, zda má STA (klient) přidělenou IP adresu
+    // Check if STA (client) has an assigned IP address
     if (esp_netif_get_ip_info(active_netif, &ip_info) != ESP_OK || ip_info.ip.addr == 0) {
-        // STA nemá IP. Zkusíme AP rozhraní (Fallback Web Server)
+        // STA has no IP. Let's try AP interface (Fallback Web Server)
         active_netif = esp_netif_get_handle_from_ifkey("WIFI_AP_DEF");
     }
     
-    // Nyní předáme Modbusu to rozhraní, které aktuálně funguje
+    // Now pass to Modbus the interface that currently works
     comm_info.tcp_opts.ip_netif_ptr = (void *)active_netif;
     /* ----------------------------------------------------------------- */
 
@@ -247,7 +247,7 @@ void aqm_modbus_update_registers(void) {
     input_reg_params.voc_index = (uint16_t)aqm_data.sen55.voc_index;
     input_reg_params.nox_index = (uint16_t)aqm_data.sen55.nox_index;
 
-    // 32-bit Uptime (Big-Endian formát)
+    // 32-bit Uptime (Big-Endian format)
     input_reg_params.uptime_sec_hi = (uint16_t)((aqm_data.status.timestamp >> 16) & 0xFFFF);
     input_reg_params.uptime_sec_lo = (uint16_t)(aqm_data.status.timestamp & 0xFFFF);
 
