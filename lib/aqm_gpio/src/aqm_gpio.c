@@ -13,7 +13,7 @@
 
 static const char *TAG = "AQM_GPIO";
 
-// --- Forward declarations ---
+// Forward declarations
 static esp_err_t aqm_led_init(void);
 static esp_err_t aqm_relay_init(void);
 static esp_err_t aqm_adcs_rdy_pins_init(void);
@@ -29,7 +29,7 @@ static uint8_t relay_state = 0;
 esp_err_t aqm_gpio_intialize(void) {
     esp_err_t err;
 
-    /* Configure GPIOs for outputs */
+    // Configure GPIOs for outputs
     err = aqm_led_init();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to initialize LED pin");
@@ -42,7 +42,7 @@ esp_err_t aqm_gpio_intialize(void) {
         return err;
     }
 
-    // Install GPIO ISR service to allow individual pin handlers
+    // Install GPIO ISR service
     err = gpio_install_isr_service(0);
     if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
         ESP_LOGE(TAG, "Failed to install GPIO ISR service");
@@ -51,7 +51,7 @@ esp_err_t aqm_gpio_intialize(void) {
 
  
 
-    /* Configure GPIOs for inputs with interrupts */
+    // Configure GPIOs for inputs with interrupts
     err = aqm_adcs_rdy_pins_init();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to initialize ADS1115 RDY pins");
@@ -80,7 +80,7 @@ static esp_err_t aqm_relay_init(void){
     esp_err_t err = gpio_reset_pin(RELAY_PIN);
     if (err != ESP_OK) return err;
     err = gpio_set_direction(RELAY_PIN, GPIO_MODE_OUTPUT);
-    err = gpio_set_level(RELAY_PIN, 1); // Ensure relay is off at startup (active LOW)
+    err = gpio_set_level(RELAY_PIN, 1); // Relay off at startup (active LOW)
     return err;
 }
 

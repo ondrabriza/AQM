@@ -27,14 +27,7 @@ static uint8_t sen55_initialized = 0;
 
 static const char *TAG = "AQM_TASKS";
 
-// -----------------------------------------------------------------------------
-// OUTPUT TASK (Hardware Control & NVS Saving)
-// -----------------------------------------------------------------------------
-
-/**
- * @brief Processes intentions from the control_word and applies them to hardware.
- * Evaluates hardware states ONLY when the 'cw_changed' flag is set.
- */
+// Output task - handles hardware control and NVS saving
 static void aqm_output_task(void *pvParameters) {
     ESP_LOGI(TAG, "Output Task Started");
     
@@ -83,19 +76,15 @@ static void aqm_output_task(void *pvParameters) {
             // 4. Clear the flag so we don't process or save again until the next change
             aqm_data.config.control_word.flags.cw_changed = 0;
 
-            // Determine if the change requires a full system REBOOT.
-            // Certain features (like Wi-Fi stack or Modbus instances) cannot be 
-            // easily destroyed and recreated on-the-fly without memory leaks.
+            // Check if reboot is needed
             uint8_t needs_reboot = 0;
             
-            // Example 1: Wi-Fi was disabled by user, but we are currently connected
+            // Wi-Fi state change
             if (!aqm_data.config.control_word.flags.wifi_en && aqm_data.data.status.status_word.flags.wifi_en) {
                 ESP_LOGW(TAG, "Wi-Fi disable requested.");
                 needs_reboot = 1;
             }
             
-            // Example 2: Wi-Fi was enabled by user, but we are currently offline
-            // (Assuming you track this, or just trigger reboot if wifi_en state toggled)
             if (aqm_data.config.control_word.flags.wifi_en && !aqm_data.data.status.status_word.flags.wifi_en) {
                  ESP_LOGW(TAG, "Wi-Fi enable requested.");
                  needs_reboot = 1;
@@ -110,16 +99,11 @@ static void aqm_output_task(void *pvParameters) {
                 ESP_LOGW(TAG, "Modbus TCP disable requested.");
                 needs_reboot = 1;
             }*/
-            
-
-
-            // Note: You can add more checks here for mb_tcp_en or mb_rtu_en toggles
 
             if (needs_reboot) {
                 ESP_LOGW(TAG, "Critical configuration changed! Rebooting in 3 seconds...");
                 
-                // Give Modbus TCP/RTU time to send the ACK response back to the Master 
-                // before pulling the plug on the system.
+                // Wait before restart to allow Modbus to send response
                 aqm_control_word_save_nvs();
                 vTaskDelay(pdMS_TO_TICKS(3000)); 
                 esp_restart();
@@ -136,9 +120,7 @@ static void aqm_output_task(void *pvParameters) {
 // SENSOR MEASUREMENT TASK (ADC & SEN55)
 // -----------------------------------------------------------------------------
 
-/**
- * @brief Hardware ISR Handler for the RDY/ALERT pins.
- */
+// ISR for ADC RDY pins
 static void IRAM_ATTR aqm_adc_rdy_isr_handler(void* arg) {
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     if (sensor_task_handle != NULL) {
@@ -150,8 +132,6 @@ static void IRAM_ATTR aqm_adc_rdy_isr_handler(void* arg) {
 }
 
 static esp_err_t aqm_adc_wait_and_read(uint8_t i2c_addr, int16_t *out_val) {
-    // Sleep the task until ISR notifies us (or timeout occurs).
-    // pdFALSE decrements the notification count by 1 (does not clear it completely).
     uint32_t notified = ulTaskNotifyTake(pdFALSE, pdMS_TO_TICKS(AQM_ADC_MAX_WAIT_TIME_MS));
 
     if (notified == 0) {
@@ -316,7 +296,6 @@ static void aqm_print_measured_values(void) {
 
 /**
  * @brief FreeRTOS Task responsible for reading all sensors periodically.
- * Obeys the 'measure_en' flag from the Control Word.
  */
 static void aqm_sensor_task(void *pvParameters) {
     ESP_LOGI(TAG, "Sensor Task Started");
@@ -396,19 +375,12 @@ static void aqm_periodic_nvs_save_task(void *pvParameters) {
 }
 
 
-// -----------------------------------------------------------------------------
-// TASK INITIALIZATION
-// -----------------------------------------------------------------------------
-
-/**
- * @brief Spawns all system background tasks
- */
+// Task initialization
 void aqm_tasks_start(void) {
-    // Create the output task. 
-    // Stack size: 2048 bytes, Priority: 5 (Standard priority)
+    // Create output task
     xTaskCreate(aqm_output_task, "output_task", 2048, NULL, 5, NULL);
 
-       // Create the factory reset task.
+    // Create factory reset task
     xTaskCreate(factory_reset_task, "factory_reset_task", 2048, NULL, 7, &factory_reset_task_handle);
 
     xTaskCreate(aqm_periodic_nvs_save_task, "nvs_save_task", 2560, NULL, 4, NULL);

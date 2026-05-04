@@ -10,7 +10,7 @@ static const char *TAG = "AQM_DATASTORE";
 aqm_data_t aqm_data;
 
 void aqm_datastore_init(void) {
-    // Zero out the entire structure
+    // Clear data
     memset(&aqm_data, 0, sizeof(aqm_data_t));
 }
 
@@ -25,7 +25,7 @@ void aqm_wifi_config_save_nvs(void) {
         return;
     }
 
-    // Save the wifi_config structure as a BLOB (Binary Large Object)
+    // Save wifi config as BLOB
     err = nvs_set_blob(my_handle, "wifi_cfg", &aqm_data.wifi_config, sizeof(aqm_wifi_config_t));
     
     if (err == ESP_OK) {
@@ -47,18 +47,18 @@ void aqm_control_word_save_nvs(void) {
     nvs_handle_t my_handle;
     esp_err_t err;
 
-    // Open NVS namespace "storage" in read/write mode
+    // Open NVS storage
     err = nvs_open("storage", NVS_READWRITE, &my_handle);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Error (%s) opening NVS!", esp_err_to_name(err));
         return;
     }
 
-    // Save the control word as a 16-bit value
+    // Save control word
     err = nvs_set_u16(my_handle, "ctrl_word", aqm_data.config.control_word.word);
     
     if (err == ESP_OK) {
-        // Write must be committed
+        // Commit changes
         err = nvs_commit(my_handle);
         if (err == ESP_OK) {
             ESP_LOGI(TAG, "Control word successfully saved to Flash.");
@@ -75,7 +75,7 @@ void aqm_wifi_config_load_nvs(void) {
     nvs_handle_t my_handle;
     esp_err_t err;
 
-    // 1. Set default values FIRST (empty credentials)
+    // Set default values first
     memset(&aqm_data.wifi_config, 0, sizeof(aqm_wifi_config_t));
 
     // 2. Open NVS in read-only mode
@@ -85,7 +85,7 @@ void aqm_wifi_config_load_nvs(void) {
         return;
     }
 
-    // 3. Try to load saved data
+    // Try to load saved data
     size_t required_size = sizeof(aqm_wifi_config_t);
     err = nvs_get_blob(my_handle, "wifi_cfg", &aqm_data.wifi_config, &required_size);
     

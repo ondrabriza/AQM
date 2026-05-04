@@ -29,7 +29,7 @@ static uint16_t next_holding_offset = 0;
 static uint16_t next_input_offset = 0;
 
 /**
- * @brief Helper function to register a block of registers with the Modbus stack
+ * @brief Register a block of registers with Modbus
  */
 static esp_err_t aqm_register_modbus_block(void* slave_handle, mb_param_type_t type, void* address, size_t size_bytes) {
 
@@ -72,11 +72,11 @@ static esp_err_t aqm_modbus_setup_descriptors(void* slave_handle){
     next_holding_offset = 0;
     next_input_offset = 0;
 
-    /* 1. Map HOLDING REGISTERS (Read/Write for Master) */
+    // Map holding registers (read/write)
     err = aqm_register_modbus_block(slave_handle, MB_PARAM_HOLDING, &aqm_data.config, sizeof(aqm_data.config));
     if (err != ESP_OK) return err;
 
-    /* 2. Map INPUT REGISTERS (Read Only for Master) */
+    // Map input registers (read only)
     err= aqm_register_modbus_block(slave_handle, MB_PARAM_INPUT, &aqm_data.data, sizeof(aqm_data.data));
     if (err != ESP_OK) return err;
 
@@ -93,16 +93,14 @@ static esp_err_t aqm_modbus_setup_descriptors(void* slave_handle){
 esp_err_t aqm_init_modbus_tcp(void) {
     mb_communication_info_t comm_info = {0};
     
-    /* Configure TCP options for the slave */
+    // Configure TCP options
     comm_info.tcp_opts.port = MODBUS_PORT;
     comm_info.tcp_opts.mode = MB_TCP;
     comm_info.tcp_opts.addr_type = MB_IPV4;
     comm_info.tcp_opts.ip_addr_table = NULL; 
     comm_info.tcp_opts.uid = 1;              
 
-    /*
-    Dynamic search for active network interface for mDNS
-     */
+    // Dynamic search for active network interface for mDNS
     esp_netif_t *active_netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
     esp_netif_ip_info_t ip_info;
     
@@ -112,9 +110,7 @@ esp_err_t aqm_init_modbus_tcp(void) {
         active_netif = esp_netif_get_handle_from_ifkey("WIFI_AP_DEF");
     }
     
-    // Now pass to Modbus the interface that currently works
     comm_info.tcp_opts.ip_netif_ptr = (void *)active_netif;
-    /* ----------------------------------------------------------------- */
 
     esp_err_t err = mbc_slave_create_tcp(&comm_info, &tcp_slave_handle);
     if (err != ESP_OK || tcp_slave_handle == NULL) {
@@ -136,22 +132,19 @@ esp_err_t aqm_init_modbus_tcp(void) {
     return err;
 }
 
-/**
- * @brief Initializes Modbus RTU (Serial RS485) Slave and maps memory areas
- * @return esp_err_t ESP_OK on success
- */
+// Init Modbus RTU
 esp_err_t aqm_init_modbus_rtu(void) {
     
     mb_communication_info_t comm_info = {0};
 
-    /* Configure Serial options for the RTU slave using ser_opts struct */
+    // Configure serial options for RTU
     comm_info.ser_opts.mode = MB_RTU;
-    comm_info.ser_opts.port = UART_NUM_1;                  /* Use UART1 (can be adjusted) */
-    comm_info.ser_opts.uid = 1;                            /* Modbus Unit ID (Slave ID) */
-    comm_info.ser_opts.baudrate = MB_RTU_BAUD_RATE;                    /* Default baud rate */
-    comm_info.ser_opts.data_bits = UART_DATA_8_BITS;       /* 8 data bits (standard for Modbus RTU) */
-    comm_info.ser_opts.stop_bits = UART_STOP_BITS_1;       /* 1 stop bit */
-    comm_info.ser_opts.parity = UART_PARITY_DISABLE;       /* No parity */
+    comm_info.ser_opts.port = UART_NUM_1;
+    comm_info.ser_opts.uid = 1;
+    comm_info.ser_opts.baudrate = MB_RTU_BAUD_RATE;
+    comm_info.ser_opts.data_bits = UART_DATA_8_BITS;
+    comm_info.ser_opts.stop_bits = UART_STOP_BITS_1;
+    comm_info.ser_opts.parity = UART_PARITY_DISABLE;
 
     esp_err_t err = mbc_slave_create_serial(&comm_info, &rtu_slave_handle);
     if (err != ESP_OK || rtu_slave_handle == NULL) {
@@ -159,15 +152,14 @@ esp_err_t aqm_init_modbus_rtu(void) {
         return err;
     }
 
-    /* Configure UART pins for RS485 */
-    /* RS485_DE_PIN acts as RTS and handles both DE and RE since they are connected together */
+    // Configure RS485 UART pins
     err = uart_set_pin(UART_NUM_1, RS485_D_PIN, RS485_R_PIN, RS485_DE_PIN, UART_PIN_NO_CHANGE);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "uart_set_pin failed: 0x%x", err);
         return err;
     }
 
-    /* Set UART mode to RS485 Half Duplex (automatically controls RTS pin) */
+    // Set RS485 half-duplex mode
     err = uart_set_mode(UART_NUM_1, UART_MODE_RS485_HALF_DUPLEX);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "uart_set_mode failed: 0x%x", err);
@@ -188,12 +180,8 @@ esp_err_t aqm_init_modbus_rtu(void) {
 }
 
 
-/**
- * @brief Updates Modbus input registers from the global datastore.
- * Synchronize holding registers with datastore and vice versa
- * Applies necessary scaling factors for integer transmission.
- */
 /*
+// Update Modbus registers (commented out)
 void aqm_modbus_update_registers(void) {
     // ==========================================
     // 1. UPDATE INPUT REGISTERS (Read Only)

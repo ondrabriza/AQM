@@ -24,9 +24,7 @@ EventGroupHandle_t s_wifi_event_group;
 // Increased allocation size to fit the larger HTML/JS payload securely
 #define HTML_MALLOC_SIZE 8192
 
-// ------------------------------------------------------------------
 // HTTP SERVER (CAPTIVE PORTAL & DASHBOARD) SECTION
-// ------------------------------------------------------------------
 
 /**
  * @brief Helper function to decode URL-encoded strings (e.g., %20 to space)
@@ -54,7 +52,7 @@ static void url_decode(char *dst, const char *src) {
 }
 
 /**
- * @brief GET API: Returns current sensor data and statuses in JSON format
+ * @brief GET API - returns sensor data as JSON
  */
 static esp_err_t api_data_get_handler(httpd_req_t *req) {
     char json_response[768];
@@ -86,7 +84,7 @@ static esp_err_t api_data_get_handler(httpd_req_t *req) {
 }
 
 /**
- * @brief POST API: Receives commands from sliders to instantly toggle hardware states
+ * @brief POST API - controls hardware via JSON
  */
 static esp_err_t api_control_post_handler(httpd_req_t *req) {
     char buf[128];
@@ -129,7 +127,7 @@ static esp_err_t api_control_post_handler(httpd_req_t *req) {
 }
 
 /**
- * @brief POST API: Sets current or manual resistance values as new R0 baselines
+ * @brief POST API - set MICS baseline
  */
 static esp_err_t api_baseline_post_handler(httpd_req_t *req) {
     char buf[128];
@@ -172,8 +170,7 @@ static esp_err_t api_baseline_post_handler(httpd_req_t *req) {
             aqm_data.config.mics_r0.ox_r0  = aqm_data.data.gases.mics_ox_r;
         }
 
-        // Trigger save to NVS to ensure calibration survives reboot
-        // Note: Implement or use your specific save function here if different
+        // Save calibration to NVS
         // aqm_control_word_save_nvs(); 
 
         if (manual_val > 0) {
@@ -192,7 +189,7 @@ static esp_err_t api_baseline_post_handler(httpd_req_t *req) {
 }
 
 /**
- * @brief HTTP GET Handler: Static HTML skeleton + Javascript
+ * @brief HTTP GET - static HTML + JS
  */
 static esp_err_t wifi_config_get_handler(httpd_req_t *req) {
     esp_netif_ip_info_t ip_info;
@@ -371,7 +368,7 @@ static esp_err_t wifi_config_get_handler(httpd_req_t *req) {
 }
 
 /**
- * @brief HTTP POST Handler: Processes ONLY Wi-Fi credential changes and restarts
+ * @brief HTTP POST - save Wi-Fi credentials
  */
 static esp_err_t wifi_save_post_handler(httpd_req_t *req) {
     char buf[512]; 
@@ -416,7 +413,7 @@ static esp_err_t wifi_save_post_handler(httpd_req_t *req) {
 }
 
 /**
- * @brief Factory reset
+ * @brief POST API - factory reset via web
  */
 static esp_err_t api_factory_reset_post_handler(httpd_req_t *req) {
     ESP_LOGW(TAG, "Factory reset requested via Web Dashboard!");
@@ -436,7 +433,7 @@ static esp_err_t api_factory_reset_post_handler(httpd_req_t *req) {
 }
 
 /**
- * @brief Starts the web server and registers paths
+ * @brief Start web server and register HTTP endpoints
  */
 void start_web_server(void) {
     httpd_handle_t server = NULL;
@@ -476,7 +473,7 @@ void start_web_server(void) {
 }
 
 /**
- * @brief Initializes mDNS and registers services
+ * @brief Start mDNS service
  */
 void start_mdns_service(void) {
     esp_err_t err = mdns_init();
@@ -497,7 +494,7 @@ void start_mdns_service(void) {
 // ------------------------------------------------------------------
 
 /**
- * @brief Starts the ESP32 in Access Point mode as a fallback
+ * @brief Start AP mode fallback
  */
 static void start_ap_fallback(void) {
     ESP_LOGW(TAG, "Starting Fallback Access Point: %s", AQM_AP_SSID);
@@ -524,7 +521,7 @@ static void start_ap_fallback(void) {
 }
 
 /**
- * @brief Event handler for Wi-Fi and IP events
+ * @brief Wi-Fi event handler
  */
 static void wifi_event_handler(void* arg, esp_event_base_t event_base,
                                int32_t event_id, void* event_data) {
@@ -554,7 +551,7 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
 }
 
 /**
- * @brief Initializes Wi-Fi stack and connects to the network
+ * @brief Initialize Wi-Fi and connects to the network
  */
 void aqm_wifi_connect(void) {
     s_wifi_event_group = xEventGroupCreate();

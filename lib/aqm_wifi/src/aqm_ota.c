@@ -15,7 +15,7 @@ static esp_err_t ota_update_post_handler(httpd_req_t *req) {
     esp_err_t err;
     esp_ota_handle_t update_handle = 0;
     
-    // 1. Find the next available OTA partition
+    // Find next OTA partition
     const esp_partition_t *update_partition = esp_ota_get_next_update_partition(NULL);
     if (update_partition == NULL) {
         ESP_LOGE(TAG, "No OTA partition found!");

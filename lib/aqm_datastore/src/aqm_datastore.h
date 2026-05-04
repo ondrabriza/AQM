@@ -169,13 +169,11 @@ void aqm_mics_config_load_nvs(void);
 
 /**
  * @brief Fills the datastore with dummy/test data.
- * Useful for testing Modbus and UI without physical sensors.
  */
 void aqm_datastore_fill_test_data(void);
 
 /**
  * @brief Fills the NVS with default values.
- * 
  */
 void aqm_datastore_fill_nvs_with_defaults(void);
 

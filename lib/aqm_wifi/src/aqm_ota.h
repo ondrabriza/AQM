@@ -6,10 +6,10 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
 /**
- * @brief Registers the OTA update endpoint (/update) to the HTTP server.
- * * @param server Handle to the running HTTP server
+ * @brief Register the OTA firmware update endpoint with the HTTP server
+ * 
+ * @param server 
  */
 void aqm_ota_register_http_endpoint(httpd_handle_t server);
 
