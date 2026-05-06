@@ -469,6 +469,7 @@ void start_web_server(void) {
         aqm_ota_register_http_endpoint(server);
         
         ESP_LOGI(TAG, "Web server started on port %d", config.server_port);
+        aqm_data.data.status.status_word.flags.web_server_en = 1;
     }
 }
 
