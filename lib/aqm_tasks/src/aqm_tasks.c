@@ -8,6 +8,7 @@
 #include "ads1115.h"
 #include "sen5x_i2c.h"
 #include "aqm_mics6814.h"
+#include "sen55.h"
 
 #include <esp_log.h>
 #include <esp_err.h>
@@ -26,6 +27,9 @@ TaskHandle_t factory_reset_task_handle = NULL; // Global handle for factory rese
 static uint8_t sen55_initialized = 0;
 
 static const char *TAG = "AQM_TASKS";
+
+static uint32_t last_relay_switch_time = 0;
+static uint32_t last_bad_air_time = 0;
 
 // Output task - handles hardware control and NVS saving
 static void aqm_output_task(void *pvParameters) {
@@ -104,7 +108,10 @@ static void aqm_output_task(void *pvParameters) {
                 ESP_LOGW(TAG, "Critical configuration changed! Rebooting in 3 seconds...");
                 
                 // Wait before restart to allow Modbus to send response
+                aqm_mics_config_save_nvs();
                 aqm_control_word_save_nvs();
+                aqm_wifi_config_save_nvs();
+
                 vTaskDelay(pdMS_TO_TICKS(3000)); 
                 esp_restart();
             }
@@ -209,8 +216,13 @@ static void aqm_read_all_adc_channels(void) {
 }
 
 static void aqm_calculate_sgx_gas_concentrations(void) {
-    aqm_data.data.gases.so2_ppm = (uint16_t)(((ads1115_compute_mv(aqm_data.data.adc_raw.so2_raw_val, ADS1115_PGA_4_096V) / SENSITIVITY_SO2_MV_PER_PPM) * 10.0f) + 0.5f); // 0.5f added for rounding to nearest integer when casting to uint16_t
+    aqm_data.data.gases.so2_ppm = (uint16_t)(((ads1115_compute_mv(aqm_data.data.adc_raw.so2_raw_val, ADS1115_PGA_4_096V) / SENSITIVITY_SO2_MV_PER_PPM) * 10.0f) + 0.5f); // 0.5f added for rounding to nearest integer when retyping to uint16_t
     aqm_data.data.gases.h2s_ppm = (uint16_t)(((ads1115_compute_mv(aqm_data.data.adc_raw.h2s_raw_val, ADS1115_PGA_4_096V) / SENSITIVITY_H2S_MV_PER_PPM) * 10.0f) + 0.5f);
+}
+
+static void aqm_calculate_sgx_aqi(void) {
+    if (aqm_data.data.gases.so2_ppm > LIMIT_SO2*10) aqm_data.data.aqi_data.so2_aqi = 4;
+    if (aqm_data.data.gases.h2s_ppm > LIMIT_H2S*10) aqm_data.data.aqi_data.h2s_aqi = 4;
 }
 
 
@@ -294,6 +306,77 @@ static void aqm_print_measured_values(void) {
 
 }
 
+static void aqm_evaluate_aqi(void) {
+
+        uint8_t max_gas_aqi = 1;
+    
+        if (aqm_data.data.aqi_data.so2_aqi > max_gas_aqi) max_gas_aqi = aqm_data.data.aqi_data.so2_aqi;
+        if (aqm_data.data.aqi_data.h2s_aqi > max_gas_aqi) max_gas_aqi = aqm_data.data.aqi_data.h2s_aqi;
+        if (aqm_data.data.aqi_data.mics_red_aqi > max_gas_aqi) max_gas_aqi = aqm_data.data.aqi_data.mics_red_aqi;
+        if (aqm_data.data.aqi_data.mics_nh3_aqi > max_gas_aqi) max_gas_aqi = aqm_data.data.aqi_data.mics_nh3_aqi;
+        if (aqm_data.data.aqi_data.pm_aqi > max_gas_aqi) max_gas_aqi = aqm_data.data.aqi_data.pm_aqi;
+        
+        //if (aqm_data.data.aqi_data.mics_ox_aqi > max_gas_aqi) max_gas_aqi = aqm_data.data.aqi_data.mics_ox_aqi;
+    
+        // Overall AQI is the maximum of all individual AQIs
+        aqm_data.data.aqi_data.global_aqi = max_gas_aqi;
+
+}
+
+
+
+static void aqm_control_relay_by_aqi(void) {
+    uint32_t current_time = xTaskGetTickCount() * portTICK_PERIOD_MS;
+    
+    if (last_relay_switch_time == 0) {
+        last_relay_switch_time = current_time;
+    }
+
+    uint32_t time_since_switch = current_time - last_relay_switch_time;
+    
+    bool should_be_blocked = (aqm_data.data.aqi_data.global_aqi >= 3);
+
+
+    if (should_be_blocked) {
+        last_bad_air_time = current_time; 
+    }
+
+    bool is_ventilation_blocked = (aqm_data.config.control_word.flags.relay_state == 1);
+
+
+    if (!is_ventilation_blocked) {
+        // --- ZAVÍRÁME VĚTRÁNÍ ---
+        // Podmínka: Vzduch je špatný A ZÁROVEŇ jsme větrali dostatečně dlouho
+        if (should_be_blocked && (time_since_switch > MIN_VENTING_TIME_MS)) {
+            
+            // Nastavíme záměr do Control Wordu
+            aqm_data.config.control_word.flags.relay_state = 1; 
+            last_relay_switch_time = current_time;
+            
+            if (aqm_data.data.aqi_data.global_aqi == 4) {
+                ESP_LOGI(TAG, "AQI=4; (Extreme pollution). Ventilation blocked!");
+            } else {
+                ESP_LOGI(TAG, "AQI=3; Ventilation blocked!");
+            }
+        }
+    } else {
+        uint32_t clean_air_duration = current_time - last_bad_air_time;
+        
+        // Podmínka: Vzduch je čistý (AQI 1 nebo 2) A ZÁROVEŇ je čistý už 5 minut 
+        // A ZÁROVEŇ jsme byli zablokováni alespoň minimální požadovanou dobu
+        if (!should_be_blocked && 
+            (clean_air_duration > CLEAN_AIR_HYSTERESIS_MS) && 
+            (time_since_switch > MIN_BLOCKED_TIME_MS)) {
+            
+
+            aqm_data.config.control_word.flags.relay_state = 0; 
+            last_relay_switch_time = current_time;
+            
+            ESP_LOGI(TAG, "AQI < 3; Clean air detected for 5 minutes. Ventilation unblocked.");
+        }
+    }
+}
+
 /**
  * @brief FreeRTOS Task responsible for reading all sensors periodically.
  */
@@ -302,26 +385,38 @@ static void aqm_sensor_task(void *pvParameters) {
 
     // 1. Register this task's handle so the ISR knows who to wake up
     sensor_task_handle = xTaskGetCurrentTaskHandle();
-
+    
     ads1115_enable_rdy_pin(ADS1115_ADDR_1);
     ads1115_enable_rdy_pin(ADS1115_ADDR_2);
-
+    
     // 2. Configure GPIOs for ADC RDY pins and attach the ISR handler
     gpio_isr_handler_add(ADC_1_RDY_PIN, aqm_adc_rdy_isr_handler, NULL);
     gpio_isr_handler_add(ADC_2_RDY_PIN, aqm_adc_rdy_isr_handler, NULL);
 
-    TickType_t xLastWakeTime = xTaskGetTickCount();
     const TickType_t xFrequency = pdMS_TO_TICKS(SENSOR_TASK_DELAY_MS);
+    TickType_t xLastWakeTime = xTaskGetTickCount();
     
     // 3. Main loop: Read sensors and update Modbus registers
     while(1) {
+        // Sleep until exactly the defined frequency has passed
+        vTaskDelayUntil(&xLastWakeTime, xFrequency);
         
         // --- Conditionally Read Sensors based on Control Word ---
         if (aqm_data.config.control_word.flags.measure_en == 1) {
             aqm_read_all_adc_channels(); 
+            aqm_sen55_read_measurements();
             aqm_calculate_sgx_gas_concentrations(); 
             aqm_calculate_data_from_mics();
-            aqm_sen55_read_measurements();
+
+            aqm_calculate_sgx_aqi();
+            aqm_calculate_aqi_mics();
+            aqm_calculate_sen55_aqi();
+
+            aqm_evaluate_aqi();
+
+            aqm_control_relay_by_aqi();
+
+
 
             aqm_print_measured_values();
         }
@@ -330,8 +425,6 @@ static void aqm_sensor_task(void *pvParameters) {
         // Processes incoming CW changes from Modbus Master and updates status
         //aqm_modbus_update_registers();
         
-        // Sleep until exactly the defined frequency has passed
-        vTaskDelayUntil(&xLastWakeTime, xFrequency);
     }
 }
 
@@ -387,6 +480,7 @@ void aqm_tasks_start(void) {
 
     
     // Create the sensor task.
-    // Stack size: 4096 bytes (due to I2C and sensor reading), Priority: 6 (Higher than output task)
-    xTaskCreate(aqm_sensor_task, "sensor_task", 4096, NULL, 6, NULL);
+    // Stack size: 6144 bytes (due to I2C and sensor reading), Priority: 6 (Higher than output task)
+    xTaskCreate(aqm_sensor_task, "sensor_task", 6144, NULL, 6, NULL);
+
 }

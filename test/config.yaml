@@ -5,7 +5,7 @@ modbus:
   # --- 1. PRIMARY ROUTE: Modbus TCP ---
   - name: "aqm_tcp"
     type: tcp
-    host: aqm.local # It is recommended to use an IP address instead of .local
+    host: 192.168.1.100 # Recommend using static IP instead of aqm.local
     port: 502
     timeout: 1
     sensors:
@@ -92,7 +92,7 @@ modbus:
         precision: 3
         <<: *aqm_defaults
 
-      # --- INPUT REGISTERS: SEN55 ---
+      # --- INPUT REGISTERS: SEN55 (Particulates & Climate) ---
       - name: aqm_tcp_pm1_0
         unique_id: aqm.tcp_sen55_pm1
         address: 8
@@ -146,7 +146,7 @@ modbus:
         data_type: int16
         <<: *aqm_defaults
 
-      # --- INPUT REGISTERS: Gases ---
+      # --- INPUT REGISTERS: SGX & MICS Gases (Concentrations) ---
       - name: aqm_tcp_so2_ppm
         unique_id: aqm.tcp_so2_ppm
         address: 16
@@ -184,6 +184,7 @@ modbus:
         address: 21
         <<: *aqm_defaults
 
+      # --- INPUT REGISTERS: MICS Compensated Resistances (Ohms) ---
       - name: aqm_tcp_mics_ox_r
         unique_id: aqm.tcp_mics_ox_r
         address: 22
@@ -203,7 +204,7 @@ modbus:
         swap: word
         <<: *aqm_defaults
 
-      # --- INPUT REGISTERS: ADC Raw ---
+      # --- INPUT REGISTERS: ADC Raw Values ---
       - name: aqm_tcp_so2_raw
         unique_id: aqm.tcp_so2_raw
         address: 28
@@ -240,12 +241,62 @@ modbus:
         precision: 0
         <<: *aqm_defaults
 
+      # ==========================================
+      # --- INPUT REGISTERS: Multi-Tier AQI Data ---
+      # ==========================================
+      # 1 = Excellent, 2 = Fair, 3 = Poor, 4 = Critical (Panic)
+      - name: aqm_tcp_global_aqi
+        unique_id: aqm.tcp_global_aqi
+        address: 36
+        precision: 0
+        <<: *aqm_defaults
+      - name: aqm_tcp_mics_red_aqi
+        unique_id: aqm.tcp_mics_red_aqi
+        address: 37
+        precision: 0
+        <<: *aqm_defaults
+      - name: aqm_tcp_mics_ox_aqi
+        unique_id: aqm.tcp_mics_ox_aqi
+        address: 38
+        precision: 0
+        <<: *aqm_defaults
+      - name: aqm_tcp_mics_nh3_aqi
+        unique_id: aqm.tcp_mics_nh3_aqi
+        address: 39
+        precision: 0
+        <<: *aqm_defaults
+      - name: aqm_tcp_so2_aqi
+        unique_id: aqm.tcp_so2_aqi
+        address: 40
+        precision: 0
+        <<: *aqm_defaults
+      - name: aqm_tcp_h2s_aqi
+        unique_id: aqm.tcp_h2s_aqi
+        address: 41
+        precision: 0
+        <<: *aqm_defaults
+      - name: aqm_tcp_pm_aqi
+        unique_id: aqm.tcp_pm_aqi
+        address: 42
+        precision: 0
+        <<: *aqm_defaults
+      - name: aqm_tcp_voc_aqi
+        unique_id: aqm.tcp_voc_aqi
+        address: 43
+        precision: 0
+        <<: *aqm_defaults
+      - name: aqm_tcp_nox_aqi
+        unique_id: aqm.tcp_nox_aqi
+        address: 44
+        precision: 0
+        <<: *aqm_defaults
+
 
   # --- 2. BACKUP ROUTE: Modbus RTU ---
   - name: "aqm_rtu"
     type: serial
     method: rtu
-    port: "/dev/ttyModbus" # Linux/Mac
+    port: "/dev/ttyModbus" # Target port on Linux/Mac/HA-OS
     baudrate: 115200
     stopbits: 1
     bytesize: 8
@@ -266,6 +317,7 @@ modbus:
         unique_id: aqm.rtu_dummy_holding_1
         address: 1
         <<: *aqm_defaults
+        input_type: holding
 
       - name: aqm_rtu_mics_ox_r0
         unique_id: aqm.rtu_mics_ox_r0
@@ -337,7 +389,7 @@ modbus:
         precision: 3
         <<: *aqm_defaults
 
-      # --- INPUT REGISTERS: SEN55 ---
+      # --- INPUT REGISTERS: SEN55 (Particulates & Climate) ---
       - name: aqm_rtu_pm1_0
         unique_id: aqm.rtu_sen55_pm1
         address: 8
@@ -391,7 +443,7 @@ modbus:
         data_type: int16
         <<: *aqm_defaults
 
-      # --- INPUT REGISTERS: Gases ---
+      # --- INPUT REGISTERS: SGX & MICS Gases (Concentrations) ---
       - name: aqm_rtu_so2_ppm
         unique_id: aqm.rtu_so2_ppm
         address: 16
@@ -429,6 +481,7 @@ modbus:
         address: 21
         <<: *aqm_defaults
 
+      # --- INPUT REGISTERS: MICS Compensated Resistances (Ohms) ---
       - name: aqm_rtu_mics_ox_r
         unique_id: aqm.rtu_mics_ox_r
         address: 22
@@ -448,7 +501,7 @@ modbus:
         swap: word
         <<: *aqm_defaults
 
-      # --- INPUT REGISTERS: ADC Raw ---
+      # --- INPUT REGISTERS: ADC Raw Values ---
       - name: aqm_rtu_so2_raw
         unique_id: aqm.rtu_so2_raw
         address: 28
@@ -482,5 +535,55 @@ modbus:
       - name: aqm_rtu_mics_nh3_raw
         unique_id: aqm.rtu_mics_nh3_raw
         address: 34
+        precision: 0
+        <<: *aqm_defaults
+
+      # ==========================================
+      # --- INPUT REGISTERS: Multi-Tier AQI Data ---
+      # ==========================================
+      # 1 = Excellent, 2 = Fair, 3 = Poor, 4 = Critical (Panic)
+      - name: aqm_rtu_global_aqi
+        unique_id: aqm.rtu_global_aqi
+        address: 36
+        precision: 0
+        <<: *aqm_defaults
+      - name: aqm_rtu_mics_red_aqi
+        unique_id: aqm.rtu_mics_red_aqi
+        address: 37
+        precision: 0
+        <<: *aqm_defaults
+      - name: aqm_rtu_mics_ox_aqi
+        unique_id: aqm.rtu_mics_ox_aqi
+        address: 38
+        precision: 0
+        <<: *aqm_defaults
+      - name: aqm_rtu_mics_nh3_aqi
+        unique_id: aqm.rtu_mics_nh3_aqi
+        address: 39
+        precision: 0
+        <<: *aqm_defaults
+      - name: aqm_rtu_so2_aqi
+        unique_id: aqm.rtu_so2_aqi
+        address: 40
+        precision: 0
+        <<: *aqm_defaults
+      - name: aqm_rtu_h2s_aqi
+        unique_id: aqm.rtu_h2s_aqi
+        address: 41
+        precision: 0
+        <<: *aqm_defaults
+      - name: aqm_rtu_pm_aqi
+        unique_id: aqm.rtu_pm_aqi
+        address: 42
+        precision: 0
+        <<: *aqm_defaults
+      - name: aqm_rtu_voc_aqi
+        unique_id: aqm.rtu_voc_aqi
+        address: 43
+        precision: 0
+        <<: *aqm_defaults
+      - name: aqm_rtu_nox_aqi
+        unique_id: aqm.rtu_nox_aqi
+        address: 44
         precision: 0
         <<: *aqm_defaults

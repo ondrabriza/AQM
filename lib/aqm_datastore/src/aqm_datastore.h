@@ -116,11 +116,28 @@ typedef struct {
 } __attribute__((packed)) aqm_holding_reg_t;
 
 typedef struct {
+    uint16_t global_aqi;
+    uint16_t mics_red_aqi;
+    uint16_t mics_ox_aqi;
+    uint16_t mics_nh3_aqi;
+
+    uint16_t so2_aqi;
+    uint16_t h2s_aqi;
+    uint16_t pm_aqi;
+    uint16_t voc_aqi;
+
+    uint16_t nox_aqi;
+    uint16_t reserved; 
+} __attribute__((packed)) aqm_aqi_data_t;
+
+typedef struct {
     aqm_system_status_t status; 
     aqm_sen55_data_t sen55;     
     aqm_gas_data_t gases;       
-    aqm_adc_raw_t adc_raw;    
+    aqm_adc_raw_t adc_raw;
+    aqm_aqi_data_t aqi_data;    
 } __attribute__((packed)) aqm_input_reg_t;
+
 
 /**
  * @brief Main Data Storage Structure
@@ -129,12 +146,7 @@ typedef struct {
     aqm_holding_reg_t config; // For Modbus Holding Registers (e.g. Control Word)
     aqm_input_reg_t data;   // For Modbus Input Registers (Status, Gas Data, etc.)
     aqm_wifi_config_t wifi_config;
-
-    //aqm_adc_raw_t adc_raw;      
-    //aqm_gas_data_t gases;       
-    //aqm_sen55_data_t sen55;     
-    //aqm_system_status_t status; 
-    //aqm_control_word_t control_word; // Control bits for device behavior
+    uint64_t timestamp_last_relay_toggle;
 } aqm_data_t;
 
 extern aqm_data_t aqm_data;

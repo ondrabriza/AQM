@@ -4,6 +4,12 @@
 #include <stdint.h>
 #include "ads1115.h"
 
+typedef enum{
+    MICS_RED = 0,
+    MICS_OX = 1,
+    MICS_NH3 = 2
+}aqm_mics_element_t;
+
 void aqm_calculate_mics_r(uint16_t mics_adc_raw, ads1115_pga_t pga, uint16_t voltage_in_mv, uint32_t r_load, uint32_t *out_r);
 
 void aqm_calculate_data_from_mics(void);
@@ -31,6 +37,10 @@ void aqm_update_mics_r0_baselines(void);
 
 void aqm_filter_mics_data(void);
 
+void aqm_mics_temp_compensate_r(uint32_t r_value, float temperature_c, aqm_mics_element_t element, uint32_t *out_compensated_r);
+
 void aqm_calculate_mics_ratios(void);
+
+void aqm_calculate_aqi_mics(void);
 
 #endif // AQM_MICS6814_H
