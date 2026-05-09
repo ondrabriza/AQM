@@ -38,8 +38,8 @@ void aqm_calculate_sen55_aqi(void){
     float nox_30s = get_recent_average(&nox_buffer, 30);
     float nox_60s = get_recent_average(&nox_buffer, 60);
 
-    ESP_LOGI(TAG, "SEN55 AQI Calc - PM2.5: 5s: %.1f, 30s: %.1f, 60s: %.1f | VOC: 5s: %.1f, 30s: %.1f, 60s: %.1f | NOx: 5s: %.1f, 30s: %.1f, 60s: %.1f", 
-            pm_5s, pm_30s, pm_60s, voc_5s, voc_30s, voc_60s, nox_5s, nox_30s, nox_60s);
+    /*ESP_LOGI(TAG, "SEN55 AQI Calc - PM2.5: 5s: %.1f, 30s: %.1f, 60s: %.1f | VOC: 5s: %.1f, 30s: %.1f, 60s: %.1f | NOx: 5s: %.1f, 30s: %.1f, 60s: %.1f", 
+            pm_5s, pm_30s, pm_60s, voc_5s, voc_30s, voc_60s, nox_5s, nox_30s, nox_60s);*/
 
     if (pm_5s > PM_AQI4) aqi_pm = 4;
     else if (pm_30s > PM_AQI3) aqi_pm = 3;

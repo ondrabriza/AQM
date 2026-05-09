@@ -327,6 +327,10 @@ static void aqm_print_measured_values(void) {
 
     ESP_LOGI(TAG, "Status: 3.3V: %u mV, 5.0V: %u mV", aqm_data.data.status.v3v3_mv, aqm_data.data.status.v5v_mv);
 
+    ESP_LOGI(TAG, "AQI: SO2: %u, H2S: %u, MICS_RED: %u, MICS_NH3: %u, MICS_OX: %u, PM: %u, VOC: %u, NOx: %u, Global AQI: %u", 
+            aqm_data.data.aqi_data.so2_aqi, aqm_data.data.aqi_data.h2s_aqi, aqm_data.data.aqi_data.mics_red_aqi, aqm_data.data.aqi_data.mics_nh3_aqi, aqm_data.data.aqi_data.mics_ox_aqi,
+            aqm_data.data.aqi_data.pm_aqi, aqm_data.data.aqi_data.voc_aqi, aqm_data.data.aqi_data.nox_aqi, aqm_data.data.aqi_data.global_aqi);
+
 }
 
 static void aqm_evaluate_aqi(void) {
@@ -447,7 +451,7 @@ static void aqm_sensor_task(void *pvParameters) {
 
 
 
-            //aqm_print_measured_values();
+            aqm_print_measured_values();
         }
         
         // --- Always Update Modbus Registers ---
