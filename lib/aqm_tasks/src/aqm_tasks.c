@@ -12,6 +12,7 @@
 
 #include <esp_log.h>
 #include <esp_err.h>
+#include <esp_timer.h>
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -20,7 +21,7 @@
 #define AQM_ADC_MAX_WAIT_TIME_MS 150 // Max time to wait for ADC conversion before timeout
 #define SENSOR_TASK_DELAY_MS 1000 // Delay for sensor reading task loop (1 second)
 
-#         
+   
 static TaskHandle_t sensor_task_handle = NULL;
 TaskHandle_t factory_reset_task_handle = NULL; // Global handle for factory reset task
 
@@ -31,12 +32,29 @@ static const char *TAG = "AQM_TASKS";
 static uint32_t last_relay_switch_time = 0;
 static uint32_t last_bad_air_time = 0;
 
+
+static volatile bool is_warmup_finished = false;
+static void warmup_timer_callback(void* arg) {
+    is_warmup_finished = true;
+    ESP_LOGI(TAG, "Warm-up done! Sensors should be stabilized now.");
+}
+static void start_sensor_warmup_timer(void) {
+    const esp_timer_create_args_t warmup_timer_args = {
+        .callback = &warmup_timer_callback,
+        .name = "warmup_timer"
+    };
+    esp_timer_handle_t warmup_timer;
+    ESP_ERROR_CHECK(esp_timer_create(&warmup_timer_args, &warmup_timer));
+    ESP_ERROR_CHECK(esp_timer_start_once(warmup_timer, START_UP_TIME_MS * 1000));
+}
+
 // Output task - handles hardware control and NVS saving
 static void aqm_output_task(void *pvParameters) {
     ESP_LOGI(TAG, "Output Task Started");
-    
-    while(1){
 
+   
+
+    while(1){
 
         // Check if there was any change in the Control Word
 
@@ -221,6 +239,8 @@ static void aqm_calculate_sgx_gas_concentrations(void) {
 }
 
 static void aqm_calculate_sgx_aqi(void) {
+    aqm_data.data.aqi_data.so2_aqi = 1;
+    aqm_data.data.aqi_data.h2s_aqi = 1;
     if (aqm_data.data.gases.so2_ppm > LIMIT_SO2*10) aqm_data.data.aqi_data.so2_aqi = 4;
     if (aqm_data.data.gases.h2s_ppm > LIMIT_H2S*10) aqm_data.data.aqi_data.h2s_aqi = 4;
 }
@@ -263,22 +283,25 @@ static void aqm_sen55_read_measurements(void) {
     int16_t humidity, temperature, voc_index, nox_index;
 
     error = sen5x_read_measured_values(
-        &pm1p0, &pm2p5, &pm4p0, &pm10p0, 
-        &humidity, &temperature, &voc_index, &nox_index
-    );
+            &pm1p0, &pm2p5, &pm4p0, &pm10p0, 
+            &humidity, &temperature, &voc_index, &nox_index
+        );
 
     if (error) {
         ESP_LOGE(TAG, "Error reading SEN55 values: %i", error);
     } else {
+
         // 4. STORE TO DATASTORE
-        aqm_data.data.sen55.pm1_0 = pm1p0;
-        aqm_data.data.sen55.pm2_5 = pm2p5; 
-        aqm_data.data.sen55.pm4_0 = pm4p0;
-        aqm_data.data.sen55.pm10_0 = pm10p0;
-        aqm_data.data.sen55.temperature = temperature; 
-        aqm_data.data.sen55.humidity = humidity; 
-        aqm_data.data.sen55.voc_index = voc_index; 
-        aqm_data.data.sen55.nox_index = nox_index; 
+        aqm_data.data.sen55.pm1_0  = (pm1p0 == 0xFFFF) ? 0 : pm1p0;
+        aqm_data.data.sen55.pm2_5  = (pm2p5 == 0xFFFF) ? 0 : pm2p5; 
+        aqm_data.data.sen55.pm4_0  = (pm4p0 == 0xFFFF) ? 0 : pm4p0;
+        aqm_data.data.sen55.pm10_0 = (pm10p0 == 0xFFFF) ? 0 : pm10p0;
+        
+        
+        aqm_data.data.sen55.humidity    = (humidity == 0x7FFF) ? 0 : humidity; 
+        aqm_data.data.sen55.temperature = (temperature == 0x7FFF) ? 0 : temperature; 
+        aqm_data.data.sen55.voc_index   = (voc_index == 0x7FFF) ? 0 : voc_index; 
+        aqm_data.data.sen55.nox_index   = (nox_index == 0x7FFF) ? 0 : nox_index; 
     }
 }
 
@@ -308,16 +331,21 @@ static void aqm_print_measured_values(void) {
 
 static void aqm_evaluate_aqi(void) {
 
-        uint8_t max_gas_aqi = 1;
-    
-        if (aqm_data.data.aqi_data.so2_aqi > max_gas_aqi) max_gas_aqi = aqm_data.data.aqi_data.so2_aqi;
-        if (aqm_data.data.aqi_data.h2s_aqi > max_gas_aqi) max_gas_aqi = aqm_data.data.aqi_data.h2s_aqi;
-        if (aqm_data.data.aqi_data.mics_red_aqi > max_gas_aqi) max_gas_aqi = aqm_data.data.aqi_data.mics_red_aqi;
-        if (aqm_data.data.aqi_data.mics_nh3_aqi > max_gas_aqi) max_gas_aqi = aqm_data.data.aqi_data.mics_nh3_aqi;
-        if (aqm_data.data.aqi_data.pm_aqi > max_gas_aqi) max_gas_aqi = aqm_data.data.aqi_data.pm_aqi;
-        
-        //if (aqm_data.data.aqi_data.mics_ox_aqi > max_gas_aqi) max_gas_aqi = aqm_data.data.aqi_data.mics_ox_aqi;
-    
+        uint16_t max_gas_aqi = 0;
+        if (is_warmup_finished)
+        {
+            if (aqm_data.data.aqi_data.so2_aqi > max_gas_aqi) max_gas_aqi = aqm_data.data.aqi_data.so2_aqi;
+            if (aqm_data.data.aqi_data.h2s_aqi > max_gas_aqi) max_gas_aqi = aqm_data.data.aqi_data.h2s_aqi;
+            if (aqm_data.data.aqi_data.mics_red_aqi > max_gas_aqi) max_gas_aqi = aqm_data.data.aqi_data.mics_red_aqi;
+            if (aqm_data.data.aqi_data.mics_nh3_aqi > max_gas_aqi) max_gas_aqi = aqm_data.data.aqi_data.mics_nh3_aqi;
+            if (aqm_data.data.aqi_data.pm_aqi > max_gas_aqi) max_gas_aqi = aqm_data.data.aqi_data.pm_aqi;
+            if (aqm_data.data.aqi_data.voc_aqi > max_gas_aqi) max_gas_aqi = aqm_data.data.aqi_data.voc_aqi;
+            if (aqm_data.data.aqi_data.nox_aqi > max_gas_aqi) max_gas_aqi = aqm_data.data.aqi_data.nox_aqi;
+            
+            //if (aqm_data.data.aqi_data.mics_ox_aqi > max_gas_aqi) max_gas_aqi = aqm_data.data.aqi_data.mics_ox_aqi;
+            
+        }
+
         // Overall AQI is the maximum of all individual AQIs
         aqm_data.data.aqi_data.global_aqi = max_gas_aqi;
 
@@ -393,6 +421,7 @@ static void aqm_sensor_task(void *pvParameters) {
     gpio_isr_handler_add(ADC_1_RDY_PIN, aqm_adc_rdy_isr_handler, NULL);
     gpio_isr_handler_add(ADC_2_RDY_PIN, aqm_adc_rdy_isr_handler, NULL);
 
+    start_sensor_warmup_timer();
     const TickType_t xFrequency = pdMS_TO_TICKS(SENSOR_TASK_DELAY_MS);
     TickType_t xLastWakeTime = xTaskGetTickCount();
     
@@ -418,7 +447,7 @@ static void aqm_sensor_task(void *pvParameters) {
 
 
 
-            aqm_print_measured_values();
+            //aqm_print_measured_values();
         }
         
         // --- Always Update Modbus Registers ---

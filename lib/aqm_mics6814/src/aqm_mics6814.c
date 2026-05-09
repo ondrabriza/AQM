@@ -224,9 +224,9 @@ void aqm_calculate_aqi_mics(void) {
     float red_30s = get_recent_average(&red_buf, 30);
     float red_60s = get_recent_average(&red_buf, 60);
 
-    if (red_5s > 0 && (red_5s / (float)aqm_data.config.mics_r0.red_r0) > MICS_RED_NH3_AQI4) aqi_red = 4;
-    else if (red_30s > 0 && (red_30s / (float)aqm_data.config.mics_r0.red_r0) > MICS_RED_NH3_AQI3) aqi_red = 3;
-    else if (red_60s > 0 && (red_60s / (float)aqm_data.config.mics_r0.red_r0) > MICS_RED_NH3_AQI2) aqi_red = 2;
+    if (red_5s > 0 && (red_5s / (float)aqm_data.config.mics_r0.red_r0) < MICS_RED_NH3_AQI4) aqi_red = 4;
+    else if (red_30s > 0 && (red_30s / (float)aqm_data.config.mics_r0.red_r0) < MICS_RED_NH3_AQI3) aqi_red = 3;
+    else if (red_60s > 0 && (red_60s / (float)aqm_data.config.mics_r0.red_r0) < MICS_RED_NH3_AQI2) aqi_red = 2;
 
 
     aqm_data.data.aqi_data.mics_nh3_aqi= aqi_nh3;

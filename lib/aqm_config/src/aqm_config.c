@@ -9,15 +9,14 @@ void push_to_buffer(ring_buffer_t *buf, float value) {
 }
 
 float get_recent_average(ring_buffer_t *buf, uint16_t samples) {
-    if (buf->count < samples) return -1.0f;
-    
+    if (buf->count < samples) return -1.0f; // Nedostatek dat
+
     float sum = 0.0f;
-    uint16_t idx = buf->head - 1;
     
-    for (uint16_t i = 0; i < samples; i++) {
-        if (idx < 0) idx += BUFFER_SIZE;
+    for (uint16_t i = 1; i <= samples; i++) {
+
+        uint16_t idx = (buf->head - i + BUFFER_SIZE) % BUFFER_SIZE;
         sum += buf->values[idx];
-        idx--;
     }
     return sum / (float)samples;
 }

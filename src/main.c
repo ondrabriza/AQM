@@ -47,6 +47,7 @@ void app_main(void) {
     aqm_wifi_config_load_nvs();
     aqm_mics_config_load_nvs();
     aqm_control_word_load_nvs();
+    aqm_data.config.control_word.flags.relay_state = 0; // Force relay off on boot for safety, regardless of saved state
 
     //aqm_data.control_word.word = 0xFFFF;
     //aqm_data.control_word.flags.cw_changed = 0;
