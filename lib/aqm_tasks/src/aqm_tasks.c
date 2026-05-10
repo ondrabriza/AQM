@@ -233,9 +233,33 @@ static void aqm_read_all_adc_channels(void) {
     aqm_data.data.status.timestamp = pdTICKS_TO_MS(xTaskGetTickCount()); 
 }
 
+/*--- Firmware Coefficients (SGX: ppm = a*T^2 + b*T + c) ---
+SO2: a = 2.180732e-03, b = -2.764546e-02, c = -1.883562e-01
+H2S: a = -5.962597e-05, b = 9.873434e-04, c = 1.439062e-01*/
+static const float SO2_A = 2.180732e-03f, SO2_B = -2.764546e-02f, SO2_C = -1.883562e-01f;
+static const float H2S_A = -5.962597e-05f, H2S_B = 9.873434e-04f, H2S_C = 1.439062e-01f;
+
+
 static void aqm_calculate_sgx_gas_concentrations(void) {
-    aqm_data.data.gases.so2_ppm = (uint16_t)(((ads1115_compute_mv(aqm_data.data.adc_raw.so2_raw_val, ADS1115_PGA_4_096V) / SENSITIVITY_SO2_MV_PER_PPM) * 10.0f) + 0.5f); // 0.5f added for rounding to nearest integer when retyping to uint16_t
-    aqm_data.data.gases.h2s_ppm = (uint16_t)(((ads1115_compute_mv(aqm_data.data.adc_raw.h2s_raw_val, ADS1115_PGA_4_096V) / SENSITIVITY_H2S_MV_PER_PPM) * 10.0f) + 0.5f);
+    float temp = aqm_data.data.sen55.temperature / 200.0f;
+    float temp2 = temp * temp;
+
+    
+    float so2_raw_ppm = ads1115_compute_mv(aqm_data.data.adc_raw.so2_raw_val, ADS1115_PGA_4_096V) / SENSITIVITY_SO2_MV_PER_PPM;
+    float h2s_raw_ppm = ads1115_compute_mv(aqm_data.data.adc_raw.h2s_raw_val, ADS1115_PGA_4_096V) / SENSITIVITY_H2S_MV_PER_PPM;
+
+    
+    float so2_drift = (SO2_A * temp2) + (SO2_B * temp) + SO2_C;
+    float h2s_drift = (H2S_A * temp2) + (H2S_B * temp) + H2S_C;
+
+    float diff_so2 = so2_raw_ppm - so2_drift;
+    float diff_h2s = h2s_raw_ppm - h2s_drift;
+    
+    float so2_final = (diff_so2 < 0) ? 0 : (diff_so2);
+    float h2s_final = (diff_h2s < 0) ? 0 : (diff_h2s);
+
+    aqm_data.data.gases.so2_ppm = (uint16_t)((so2_final * 10.0f) + 0.5f);
+    aqm_data.data.gases.h2s_ppm = (uint16_t)((h2s_final * 10.0f) + 0.5f);
 }
 
 static void aqm_calculate_sgx_aqi(void) {
@@ -252,7 +276,7 @@ static void aqm_calculate_sgx_aqi(void) {
 static void aqm_sen55_read_measurements(void) {
     int16_t error;
 
-    // 1. INITIALIZATION
+    // INITIALIZATION
     if (!sen55_initialized) {
         ESP_LOGI(TAG, "Initializing SEN55...");
         
@@ -273,12 +297,12 @@ static void aqm_sen55_read_measurements(void) {
         sen55_initialized = 1;
     }
 
-    // 2. CHECK DATA READY
+    // CHECK DATA READY
     bool data_ready = false;
     error = sen5x_read_data_ready(&data_ready);
     if (error || !data_ready) return;
 
-    // 3. READ VALUES
+    // READ VALUES
     uint16_t pm1p0, pm2p5, pm4p0, pm10p0;
     int16_t humidity, temperature, voc_index, nox_index;
 
@@ -333,7 +357,7 @@ static void aqm_print_measured_values(void) {
 
 }
 
-static void aqm_evaluate_aqi(void) {
+static void aqm_evaluate_global_aqi(void) {
 
         uint16_t max_gas_aqi = 0;
         if (is_warmup_finished)
@@ -377,11 +401,10 @@ static void aqm_control_relay_by_aqi(void) {
 
 
     if (!is_ventilation_blocked) {
-        // --- ZAVÍRÁME VĚTRÁNÍ ---
-        // Podmínka: Vzduch je špatný A ZÁROVEŇ jsme větrali dostatečně dlouho
+        //Air is bad and ventilation is currently unblocked, check if we can block it now
         if (should_be_blocked && (time_since_switch > MIN_VENTING_TIME_MS)) {
             
-            // Nastavíme záměr do Control Wordu
+
             aqm_data.config.control_word.flags.relay_state = 1; 
             last_relay_switch_time = current_time;
             
@@ -394,8 +417,7 @@ static void aqm_control_relay_by_aqi(void) {
     } else {
         uint32_t clean_air_duration = current_time - last_bad_air_time;
         
-        // Podmínka: Vzduch je čistý (AQI 1 nebo 2) A ZÁROVEŇ je čistý už 5 minut 
-        // A ZÁROVEŇ jsme byli zablokováni alespoň minimální požadovanou dobu
+        // Air is good and ventilation is currently blocked, check if we can unblock it now
         if (!should_be_blocked && 
             (clean_air_duration > CLEAN_AIR_HYSTERESIS_MS) && 
             (time_since_switch > MIN_BLOCKED_TIME_MS)) {
@@ -445,11 +467,9 @@ static void aqm_sensor_task(void *pvParameters) {
             aqm_calculate_aqi_mics();
             aqm_calculate_sen55_aqi();
 
-            aqm_evaluate_aqi();
+            aqm_evaluate_global_aqi();
 
             aqm_control_relay_by_aqi();
-
-
 
             aqm_print_measured_values();
         }

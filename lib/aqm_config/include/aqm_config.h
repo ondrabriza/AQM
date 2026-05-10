@@ -81,9 +81,9 @@
 
 
 #define START_UP_TIME_MS   (2 * 60 * 1000)  // 
-#define MIN_BLOCKED_TIME_MS     (10 * 60 * 1000) // Větrání musí zůstat vypnuté min. 10 minut
-#define MIN_VENTING_TIME_MS     (5 * 60 * 1000)  // Větrání musí zůstat zapnuté min. 5 minut
-#define CLEAN_AIR_HYSTERESIS_MS (5 * 60 * 1000)  // Vzduch musí být čistý 5 minut v kuse, než se vyvětrá
+#define MIN_BLOCKED_TIME_MS     (10 * 60 * 1000) // Ventilation must remain disabled for at least 10 minutes
+#define MIN_VENTING_TIME_MS     (5 * 60 * 1000)  // Ventilation must remain enabled for at least 5 minutes
+#define CLEAN_AIR_HYSTERESIS_MS (5 * 60 * 1000)  // Air has to be good for at least 5 minutes to consider it clean again after a bad air event
 
 #define PERSISTENCE_THRESHOLD_SGX 15
 
