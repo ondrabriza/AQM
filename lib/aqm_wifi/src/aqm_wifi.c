@@ -490,9 +490,7 @@ void start_mdns_service(void) {
 }
 
 
-// ------------------------------------------------------------------
 // WI-FI CONNECTION & FALLBACK SECTION
-// ------------------------------------------------------------------
 
 /**
  * @brief Start AP mode fallback

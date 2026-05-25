@@ -10,12 +10,20 @@ extern EventGroupHandle_t s_wifi_event_group;
 
 
 /**
- * @brief Initialize Wi-Fi in station mode and connect to the Access Point.
- * * @return esp_err_t ESP_OK on success
+ * @brief Connect to Wi-Fi using credentials from NVS or defaults from config.h. Sets up event handlers for Wi-Fi and IP events. If connection fails after max retries, starts AP fallback mode.
  */
 void aqm_wifi_connect(void);
-    // Start HTTP server for provisioning
+    
+/**
+ * @brief Start the web server for handling HTTP requests.
+ * 
+ */
 void start_web_server(void);
+
+/**
+ * @brief Start mDNS service for hostname aqm.local, allowing users to access the web interface without needing to know the IP address.
+ * 
+ */
 void start_mdns_service(void); // aqm.local
 
 

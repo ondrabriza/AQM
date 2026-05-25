@@ -33,14 +33,35 @@ void aqm_calculate_mics_ratio(uint32_t r_value, uint32_t r0_value, uint16_t *out
  */
 void aqm_calculate_r0_baseline(const uint32_t r_value, const uint32_t current_r0, const float alpha, uint32_t *out_r0);
 
+/**
+ * @brief Updates the R0 baselines for each MICS element.
+ * 
+ */
 void aqm_update_mics_r0_baselines(void);
+
 
 void aqm_filter_mics_data(void);
 
+/**
+ * @brief Performs temperature compensation on the MICS resistance value.
+ * 
+ * @param r_value - The resistance value to be compensated
+ * @param temperature_c - The current temperature in Celsius
+ * @param element - The MICS element for which the compensation is being calculated (RED, OX, NH3)
+ * @param out_compensated_r - The output pointer where the compensated resistance value will be stored
+ */
 void aqm_mics_temp_compensate_r(uint32_t r_value, float temperature_c, aqm_mics_element_t element, uint32_t *out_compensated_r);
 
+/**
+ * @brief Calculates the ratios for each MICS element.
+ * 
+ */
 void aqm_calculate_mics_ratios(void);
 
+/**
+ * @brief Calculates the AQI based on MICS sensor data.
+ * 
+ */
 void aqm_calculate_aqi_mics(void);
 
 #endif // AQM_MICS6814_H
