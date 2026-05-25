@@ -34,6 +34,8 @@ The acquired data is simultaneously stored into the InfluxDB database for real-t
 ---
 
 ## Repository Structure
+
+```text
 ├── lib/               # Custom application components and peripheral drivers
 │   ├── ads1115/       # Driver for the 16-bit external Analog-to-Digital Converter
 │   ├── aqm_config/    # System configuration
